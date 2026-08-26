@@ -1,63 +1,63 @@
 /* Crash report email body placeholder */
-"<Please provide as much details as possible about what you were doing when the crash occurred.>" = "<Please provide as much details as possible about what you were doing when the crash occurred.>";
+"<Please provide as much details as possible about what you were doing when the crash occurred.>" = "<請盡可能提供您在發生當機時正在執行的操作詳細資訊。>";
 
 /* Support email body placeholder */
-"<Please state your question or problem here>" = "Please state your question or problem here";
+"<Please state your question or problem here>" = "請在此說明您的問題或狀況";
 
 /* An error message */
-"A server installation could not be found. Check the server address." = "A server installation could not be found. Check the server address.";
+"A server installation could not be found. Check the server address." = "找不到伺服器安裝。請檢查伺服器位址。";
 
 /* Acknowledgements */
 "Acknowledgements" = "致謝";
 
 /* Title of alert for adding a category */
-"Add Category" = "Add category";
+"Add Category" = "新增類別";
 
 /* Item to show all notes */
-"All" = "All";
+"All" = "全部";
 
 /* A menu action
    A menu option for cancelling */
 "Cancel" = "Cancel";
 
 /* Header title, categories */
-"CATEGORIES" = "CATEGORIES";
+"CATEGORIES" = "類別";
 
 /* 'Category' menu item */
-"Category" = "Category";
+"Category" = "類別";
 
 /* Action to change category of a note */
-"Category…" = "Category…";
+"Category…" = "類別…";
 
 /* Action to change category of a note */
-"Change Category…" = "Change category…";
+"Change Category…" = "變更類別…";
 
 /* An error message */
-"Check username and password." = "Check username and password.";
+"Check username and password." = "請檢查使用者名稱和密碼。";
 
 /* Title of a button allowing the user to close the login screen and sync with the server */
-"Close & Sync" = "Close & Sync";
+"Close & Sync" = "關閉與同步";
 
 /* Crash report email subject */
-"NextcloudNotes Crash Report" = "NextcloudNotes Crash Report";
+"NextcloudNotes Crash Report" = "NextcloudNotes 當機報告";
 
 /* No comment provided by engineer. */
-"NextcloudNotes crashed last time it was launched. Do you want to send a report to the developer?" = "NextcloudNotes crashed last time it was launched. Do you want to send a report to the developer?";
+"NextcloudNotes crashed last time it was launched. Do you want to send a report to the developer?" = "NextcloudNotes 上次啟動時發生當機。您要傳送報告給開發者嗎？";
 
 /* Support email subject */
-"NextcloudNotes Support Request" = "NextcloudNotes Support Request";
+"NextcloudNotes Support Request" = "NextcloudNotes 支援請求";
 
 /* A button title */
-"Connect" = "Connect";
+"Connect" = "連線";
 
 /* Status information, connected */
-"Connected to Notes on the server" = "Connected to Notes on the server";
+"Connected to Notes on the server" = "已連線至伺服器上的「筆記」";
 
 /* An error message title */
-"Connection failure" = "Connection failure";
+"Connection failure" = "連線失敗";
 
 /* Alert view title */
-"Crash Detected" = "Crash detected";
+"Crash Detected" = "偵測到當機";
 
 /* Action to delete a note */
 "Delete" = "Delete";
@@ -66,28 +66,28 @@
 "Delete Note" = "刪除筆記";
 
 /* Prompt on alert for adding a category */
-"Enter a name for the new category" = "Enter a name for the new category";
+"Enter a name for the new category" = "輸入新類別的名稱";
 
 /* The title of an error message */
-"Error Adding Note" = "Error adding note";
+"Error Adding Note" = "新增筆記時發生錯誤";
 
 /* The title of an error message */
-"Error Deleting Note" = "Error deleting note";
+"Error Deleting Note" = "刪除筆記時發生錯誤";
 
 /* The title of an error message */
-"Error Getting Note" = "Error getting note";
+"Error Getting Note" = "取得筆記時發生錯誤";
 
 /* The title of an error message */
-"Error Syncing Notes" = "Error syncing notes";
+"Error Syncing Notes" = "同步筆記時發生錯誤";
 
 /* The title of an error message */
-"Error Updating Note" = "Error updating note";
+"Error Updating Note" = "更新筆記時發生錯誤";
 
 /* The title of an error message */
-"Error Updating Notes" = "Error updating notes";
+"Error Updating Notes" = "更新筆記時發生錯誤";
 
 /* An error message */
-"Failed to connect to a server. Check your settings." = "Failed to connect to a server. Check your settings.";
+"Failed to connect to a server. Check your settings." = "無法連線至伺服器。請檢查您的設定。";
 
 /* Item to show favorite notes */
 "Favorites" = "喜愛";
@@ -96,10 +96,10 @@
 "HTML" = "HTML";
 
 /* A status label indicating that the user is logged in */
-"Logged In" = "Logged in";
+"Logged In" = "已登入";
 
 /* Header title, main */
-"MAIN" = "MAIN";
+"MAIN" = "主要";
 
 /* A menu option for sharing in markdown format */
 "Markdown" = "Markdown";
@@ -108,28 +108,28 @@
 "New note" = "新筆記";
 
 /* No comment provided by engineer. */
-"No thanks" = "No thanks";
+"No thanks" = "不用了，謝謝";
 
 /* Status information, not connected */
-"Not connected to Notes on a server" = "Not connected to Notes on a server";
+"Not connected to Notes on a server" = "未連線至伺服器上的「筆記」";
 
 /* A status label indicating that the user is not logged in */
-"Not Logged In" = "Not logged in";
+"Not Logged In" = "未登入";
 
 /* Message about not being logged in */
-"Not logged in" = "Not logged in";
+"Not logged in" = "未登入";
 
 /* Title of alert to change title */
-"Note Title" = "Note title";
+"Note Title" = "筆記標題";
 
 /* An error message */
-"Notes could not be found on your server. Make sure it is installed and enabled" = "Notes could not be found on your server. Make sure it is installed and enabled";
+"Notes could not be found on your server. Make sure it is installed and enabled" = "在您的伺服器上找不到「筆記」。請確認其已安裝並啟用";
 
 /* An error message title */
-"Notes not found" = "Notes not found";
+"Notes not found" = "找不到筆記";
 
 /* Button, OK */
-"OK" = "OK";
+"OK" = "確定";
 
 /* Title for Open In activity */
 "Open in…" = "開啟在...";
@@ -139,87 +139,87 @@
 
 /* A message
    A message to check network connection */
-"Please check network connection and login." = "Please check network connection and login.";
+"Please check network connection and login." = "請檢查網路連線並登入。";
 
 /* A button title */
-"Reconnect" = "Reconnect";
+"Reconnect" = "重新連線";
 
 /* Action to change title of a note
    Caption of Rename button */
 "Rename" = "Rename";
 
 /* Message of alert to change title */
-"Rename the note" = "Rename the note";
+"Rename the note" = "重新命名筆記";
 
 /* Action to change title of a note */
-"Rename…" = "Rename…";
+"Rename…" = "重新命名…";
 
 /* A menu option for sharing in rich text format */
 "Rich Text" = "格式化文字";
 
 /* Placeholder text when no note is selected */
-"Select or create a note." = "Select or create a note.";
+"Select or create a note." = "選取或建立筆記。";
 
 /* Alert title for selecting server brand */
-"Server" = "Server";
+"Server" = "伺服器";
 
 /* An error message title */
 "Server not found" = "找不到 Nextcloud 伺服器";
 
 /* A message title */
-"Server Reachable" = "Server reachable";
+"Server Reachable" = "伺服器可連線";
 
 /* Title of a menu with sharing options */
-"Share Note As" = "Share note as";
+"Share Note As" = "將筆記分享為";
 
 /* A message title */
-"Success" = "Success";
+"Success" = "成功";
 
 /* A message */
-"The network connection is working properly." = "The network connection is working properly.";
+"The network connection is working properly." = "網路連線運作正常。";
 
 /* An error message */
-"The note does not exist" = "The note does not exist";
+"The note does not exist" = "筆記不存在";
 
 /* Alert message for selecting server brand */
-"Unable to automatically detect type of server.\nPlease select:" = "Unable to automatically detect type of server.\nPlease select:";
+"Unable to automatically detect type of server.\nPlease select:" = "無法自動偵測伺服器類型。\n請選擇：";
 
 /* A message title
    The title of an error message */
-"Unable to Reach Server" = "Unable to reach server";
+"Unable to Reach Server" = "無法連線至伺服器";
 
 /* An error message title */
 "Unauthorized" = "未授權";
 
 /* Text displayed for notes not assigned to a category */
-"Uncategorized" = "Uncategorized";
+"Uncategorized" = "未分類";
 
 /* Message with Notes version, product name and version */
-"Using Notes %1$@ on %2$@ %3$@." = "Using Notes %1$@ on %2$@ %3$@.";
+"Using Notes %1$@ on %2$@ %3$@." = "正在 %2$@ %3$@ 上使用筆記 %1$@。";
 
 /* No comment provided by engineer. */
-"Yes, please!" = "Yes, please!";
+"Yes, please!" = "好的！";
 
 /* A message */
-"You are now connected to Notes on your server" = "You are now connected to Notes on your server";
+"You are now connected to Notes on your server" = "您現在已連線至伺服器上的「筆記」";
 
 /* HUD subtitle when checking server capabilities */
-"Checking server capabilities" = "Checking server capabilities";
+"Checking server capabilities" = "正在檢查伺服器功能";
 
 /* HUD subtitle when checking server settings */
-"Checking server settings" = "Checking server settings";
+"Checking server settings" = "正在檢查伺服器設定";
 
 /* HUD subtitle when checking server status */
-"Checking server status" = "Checking server status";
+"Checking server status" = "正在檢查伺服器狀態";
 
 /* No comment provided by engineer. */
-"Connection error" = "Connection error";
+"Connection error" = "連線錯誤";
 
 /* No comment provided by engineer. */
 "Do you want to connect to the server anyway?" = "您依然想連線到伺服器嗎？";
 
 /* An error message title */
-"Error" = "Error";
+"Error" = "錯誤";
 
 /* No comment provided by engineer. */
 "No" = "No";
@@ -237,7 +237,7 @@
 "The certificate for this server is invalid" = "此伺服器的憑證無效";
 
 /* No comment provided by engineer. */
-"View Certificate" = "View certificate";
+"View Certificate" = "檢視憑證";
 
 /* No comment provided by engineer. */
 "Yes" = "Yes";
@@ -248,30 +248,30 @@
 "Notes" = "筆記";
 
 "Cancel" = "Cancel";
-"Scan QR Code" = "Scan QR Code";
-"Close" = "Close";
-"Server Address" = "Server Address";
-"The address of your Nextcloud web interface when you open it in your browser." = "The address of your Nextcloud web interface when you open it in your browser.";
-"The entered server address is invalid." = "The entered server address is invalid.";
-"Accounts from our other apps were found on this device. Would you like to add one of these?" = "Accounts from our other apps were found on this device. Would you like to add one of these?";
-"Shared Accounts" = "Shared Accounts";
+"Scan QR Code" = "掃描 QR 碼";
+"Close" = "關閉";
+"Server Address" = "伺服器位址";
+"The address of your Nextcloud web interface when you open it in your browser." = "您在瀏覽器中開啟 Nextcloud 網頁介面時的位址。";
+"The entered server address is invalid." = "輸入的伺服器位址無效。";
+"Accounts from our other apps were found on this device. Would you like to add one of these?" = "在此裝置上找到來自我們其他應用程式的帳號。您要加入其中一個嗎？";
+"Shared Accounts" = "共用帳號";
 
 // SettingsView
-"Account" = "Account";
-"Log Out" = "Log Out";
-"Synchronization" = "Synchronization";
-"Synchronize on Start" = "Synchronize on Start";
-"Offline Mode" = "Offline Mode";
-"Server Settings" = "Server Settings";
-"Notes Path" = "Notes Path";
-"Internal Editor" = "Internal Editor";
-"File Extension" = "File Extension";
-"About This App" = "About This App";
-"Client Version" = "Client Version";
-"Server Version" = "Server Version";
+"Account" = "帳號";
+"Log Out" = "登出";
+"Synchronization" = "同步";
+"Synchronize on Start" = "啟動時同步";
+"Offline Mode" = "離線模式";
+"Server Settings" = "伺服器設定";
+"Notes Path" = "筆記路徑";
+"Internal Editor" = "內部編輯器";
+"File Extension" = "副檔名";
+"About This App" = "關於此應用程式";
+"Client Version" = "用戶端版本";
+"Server Version" = "伺服器版本";
 "Privacy and Legal Policy" = "隱私權與法律政策";
-"Show Source Code on GitHub" = "Show Source Code on GitHub";
-"Logout" = "Logout";
-"Are you sure you want to log out?" = "Are you sure you want to log out?";
-"Enter a name for the folder where notes should be saved on the server" = "Enter a name for the folder where notes should be saved on the server";
+"Show Source Code on GitHub" = "在 GitHub 上顯示原始碼";
+"Logout" = "登出";
+"Are you sure you want to log out?" = "確定要登出嗎？";
+"Enter a name for the folder where notes should be saved on the server" = "輸入應在伺服器上儲存筆記的資料夾名稱";
 "Settings" = "Settings";

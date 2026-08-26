@@ -5,16 +5,16 @@
   Created by Peter Hedlund on 6/22/14.
   Copyright (c) 2014 Peter Hedlund. All rights reserved.
 */
-"About" = "About";
+"About" = "關於";
 
 "Acknowledgements" = "致謝";
 
-"Advanced Settings" = "Advanced settings";
+"Advanced Settings" = "進階設定";
 
-"Caution: Turning the switch on will remove all notes locally. Unsynced changes will be lost. Use only if you are experiencing problems." = "Caution: Turning the switch on will remove all notes locally. Unsynced changes will be lost. Use only if you are experiencing problems.";
+"Caution: Turning the switch on will remove all notes locally. Unsynced changes will be lost. Use only if you are experiencing problems." = "警告：開啟此開關將會移除本機上的所有筆記。未同步的變更將會遺失。請僅在發生問題時使用。";
 
-"Reset local notes database" = "Reset local notes database";
+"Reset local notes database" = "重設本機筆記資料庫";
 
-"Third-party licenses" = "Third-party licenses";
+"Third-party licenses" = "第三方授權";
 
-"Version" = "Version";
+"Version" = "版本";
