@@ -51,8 +51,11 @@ jobs:
             -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO
 
+      - name: Locate built .app
+        run: find build/Build/Products -maxdepth 2 -type d -name "*.app"
+
       - name: Upload built .app
         uses: actions/upload-artifact@v4
         with:
           name: iOCNotes-app
-          path: build/Build/Products/Debug-iphonesimulator/iOCNotes.app
+          path: build/Build/Products/**/*.app
