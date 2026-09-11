@@ -9,7 +9,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Nextcloud Notes</string>
+	<string>Xenia Notes</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -90,7 +90,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required to use QR codes as a login method.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Nextcloud Notes needs local network access if your server is hosted locally</string>
+	<string>Xenia Notes needs local network access if your server is hosted locally</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

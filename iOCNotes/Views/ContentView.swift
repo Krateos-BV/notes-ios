@@ -35,9 +35,25 @@ struct ContentView: View {
 
     var body: some View {
         if store.accounts.isEmpty {
-            ServerAddressView(backgroundColor: .constant(Color.accent), brandImage: Image("BrandLogo"), sharedAccounts: sharedAccounts, userAgent: userAgent) { host, name, password in
+            // `backgroundColor` is painted as an opaque fill inside ServerAddressView's own
+            // ZStack, so it's kept transparent here and the real gradient is applied via
+            // `.background` below. Its RGB (not alpha) still drives `.readable`'s contrast
+            // calculation, so text/icon colors stay correct against the gradient.
+            ServerAddressView(backgroundColor: .constant(Color(red: 0 / 255, green: 34 / 255, blue: 102 / 255).opacity(0)), brandImage: Image("BrandLogo"), sharedAccounts: sharedAccounts, userAgent: userAgent) { host, name, password in
                 store.addAccount(host: host, name: name, password: password)
             }
+            .background(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0 / 255, green: 18 / 255, blue: 51 / 255),
+                        Color(red: 0 / 255, green: 34 / 255, blue: 102 / 255),
+                        Color(red: 0 / 255, green: 51 / 255, blue: 153 / 255)
+                    ],
+                    startPoint: UnitPoint(x: 0.33, y: 0),
+                    endPoint: UnitPoint(x: 0.67, y: 1)
+                )
+            )
+            .ignoresSafeArea()
             .onAppear {
                 // The store must update its list of shared accounts when the login user interface is about to appear.
                 store.readSharedAccounts()
