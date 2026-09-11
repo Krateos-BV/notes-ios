@@ -6,7 +6,7 @@ name: Xenia CI
 on:
   push:
     branches:
-      - xenia-rebrand
+      - main
   workflow_dispatch:
 
 concurrency:
