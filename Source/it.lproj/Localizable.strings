@@ -18,13 +18,13 @@
 
 /* A menu action
    A menu option for cancelling */
-"Cancel" = "Cancel";
+"Cancel" = "Annulla";
 
 /* Header title, categories */
 "CATEGORIES" = "CATEGORIES";
 
 /* 'Category' menu item */
-"Category" = "Category";
+"Category" = "Categoria";
 
 /* Action to change category of a note */
 "Category…" = "Category…";
@@ -247,7 +247,7 @@
 
 "Notes" = "Notes";
 
-"Cancel" = "Cancel";
+"Cancel" = "Annulla";
 "Scan QR Code" = "Scan QR Code";
 "Close" = "Close";
 "Server Address" = "Server Address";
