@@ -1,0 +1,109 @@
+name: Xenia Upstream Sync
+
+# Periodically checks nextcloud/notes-ios:main for commits we don't have yet and
+# opens a PR so they get triaged instead of silently piling up. This fork has diverged
+# on branding/config/release plumbing, so this workflow deliberately NEVER merges
+# anything automatically - it only surfaces what upstream has and lets a human decide
+# per commit whether it's safe to pull in.
+#
+# If the merge attempt below hits conflicts, the PR is still opened with the conflict
+# markers committed as-is so the diff shows exactly what needs manual resolution,
+# rather than silently skipping the sync.
+
+on:
+  schedule:
+    # Every Monday 06:00 UTC.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  upstream-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch upstream
+        run: git remote add upstream https://github.com/nextcloud/notes-ios.git && git fetch upstream main
+
+      - name: Check for new upstream commits
+        id: check
+        run: |
+          count=$(git rev-list --count HEAD..upstream/main)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "$count new upstream commit(s)"
+
+      - name: Check for an existing open sync PR
+        id: existing
+        if: steps.check.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          open_pr=$(gh pr list --state open --head upstream-sync/main --json number --jq '.[0].number // ""')
+          echo "pr=$open_pr" >> "$GITHUB_OUTPUT"
+
+      - name: Configure git identity
+        if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Attempt merge of upstream/main
+        id: merge
+        if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
+        run: |
+          git checkout -b upstream-sync/main
+          if git merge upstream/main --no-edit; then
+            echo "clean=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "clean=false" >> "$GITHUB_OUTPUT"
+            git add -A
+            git commit -m "chore: merge nextcloud/notes-ios main (conflicts need manual resolution)"
+          fi
+
+      - name: List upstream commits
+        id: log
+        if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
+        run: |
+          log=$(git log --format='- %h %s' HEAD..upstream/main)
+          echo "log<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$log" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Push sync branch
+        if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
+        run: git push origin upstream-sync/main --force
+
+      - name: Open PR
+        if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          status_line="This merge was clean."
+          if [ "${{ steps.merge.outputs.clean }}" != "true" ]; then
+            status_line="**This merge has unresolved conflicts** (committed as-is with conflict markers) - resolve them on this branch before merging."
+          fi
+          gh pr create \
+            --title "Upstream sync: ${{ steps.check.outputs.count }} new commit(s) from nextcloud/notes-ios" \
+            --head upstream-sync/main \
+            --base main \
+            --body "$(cat <<EOF
+          Automated sync check against [nextcloud/notes-ios](https://github.com/nextcloud/notes-ios) main.
+
+          $status_line
+
+          This PR is never auto-merged - review each commit for conflicts with our branding, bundle ID, CalVer versioning, and release plumbing before merging.
+
+          ## Upstream commits
+          ${{ steps.log.outputs.log }}
+          EOF
+          )"
