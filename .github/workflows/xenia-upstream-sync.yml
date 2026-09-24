@@ -81,7 +81,9 @@ jobs:
 
       - name: Push sync branch
         if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
-        run: git push origin upstream-sync/main --force
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" upstream-sync/main --force
 
       - name: Open PR
         if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
