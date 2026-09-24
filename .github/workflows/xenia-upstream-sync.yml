@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 XeniaCloud
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 name: Xenia Upstream Sync
 
 # Periodically checks nextcloud/notes-ios:main for commits we don't have yet and

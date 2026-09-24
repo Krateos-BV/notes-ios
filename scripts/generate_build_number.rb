@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# SPDX-FileCopyrightText: 2026 XeniaCloud
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Derives CURRENT_PROJECT_VERSION (the iOS build number) using the same
 # YYMMDDID CalVer encoding as notes-android's fastlane/common.Fastfile
 # (parseVersionCode/generateVersionCode), so the fleet shares one
