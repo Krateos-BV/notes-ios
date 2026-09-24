@@ -103,20 +103,24 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" upstream-sync/main --force
 
+      # Created via the REST API rather than `gh pr create`: the CLI goes through the
+      # GraphQL createPullRequest mutation, which refused an App installation token with
+      # "Resource not accessible by integration" even with pull_requests: write granted.
+      # The REST endpoint accepts the same token. (XNT-184)
       - name: Open PR
         if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          UPSTREAM_COUNT: ${{ steps.check.outputs.count }}
+          UPSTREAM_LOG: ${{ steps.log.outputs.log }}
+          MERGE_CLEAN: ${{ steps.merge.outputs.clean }}
         run: |
           status_line="This merge was clean."
-          if [ "${{ steps.merge.outputs.clean }}" != "true" ]; then
+          if [ "$MERGE_CLEAN" != "true" ]; then
             status_line="**This merge has unresolved conflicts** (committed as-is with conflict markers) - resolve them on this branch before merging."
           fi
-          gh pr create \
-            --title "Upstream sync: ${{ steps.check.outputs.count }} new commit(s) from nextcloud/notes-ios" \
-            --head upstream-sync/main \
-            --base main \
-            --body "$(cat <<EOF
+
+          body=$(cat <<EOF
           Automated sync check against [nextcloud/notes-ios](https://github.com/nextcloud/notes-ios) main.
 
           $status_line
@@ -124,6 +128,16 @@ jobs:
           This PR is never auto-merged - review each commit for conflicts with our branding, bundle ID, CalVer versioning, and release plumbing before merging.
 
           ## Upstream commits
-          ${{ steps.log.outputs.log }}
+
+          $UPSTREAM_LOG
           EOF
-          )"
+          )
+
+          jq -n \
+            --arg title "Upstream sync: $UPSTREAM_COUNT new commit(s) from nextcloud/notes-ios" \
+            --arg head "upstream-sync/main" \
+            --arg base "main" \
+            --arg body "$body" \
+            '{title: $title, head: $head, base: $base, body: $body}' \
+          | gh api --method POST "repos/${GITHUB_REPOSITORY}/pulls" --input - \
+              --jq '"Opened PR #\(.number): \(.html_url)"'
