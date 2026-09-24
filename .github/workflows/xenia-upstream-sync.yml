@@ -25,12 +25,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # GITHUB_TOKEN cannot create or update files under .github/workflows/ - that is a
+      # GitHub security boundary, not a `permissions:` setting (`workflows` is not a
+      # permission a workflow can request). Upstream merges regularly touch workflow
+      # files, so the sync push was rejected server-side with
+      #   refusing to allow a GitHub App to create or update workflow ... without
+      #   `workflows` permission
+      # A GitHub App installation token can hold `workflows: write`, so mint one per run.
+      # It is also short-lived and not tied to anyone's personal account, unlike a PAT.
+      #
+      # Second benefit: a PR opened with GITHUB_TOKEN does not trigger `pull_request`
+      # workflows, so sync PRs would have arrived with no CI at all. An App token's PR
+      # does trigger them. (XNT-184)
+      - name: Mint a GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.XENIA_SYNC_APP_ID }}
+          private-key: ${{ secrets.XENIA_SYNC_APP_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Fetch upstream
         run: git remote add upstream https://github.com/nextcloud/notes-ios.git && git fetch upstream main
@@ -46,7 +64,7 @@ jobs:
         id: existing
         if: steps.check.outputs.count != '0'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           open_pr=$(gh pr list --state open --head upstream-sync/main --json number --jq '.[0].number // ""')
           echo "pr=$open_pr" >> "$GITHUB_OUTPUT"
@@ -82,13 +100,13 @@ jobs:
       - name: Push sync branch
         if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" upstream-sync/main --force
 
       - name: Open PR
         if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           status_line="This merge was clean."
           if [ "${{ steps.merge.outputs.clean }}" != "true" ]; then
