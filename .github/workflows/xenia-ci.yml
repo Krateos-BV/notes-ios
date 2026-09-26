@@ -3,10 +3,20 @@
 
 name: Xenia CI
 
+# XNT-215: `pull_request:` added 26 Sep 2026. This built `main` on push but had no
+# PR trigger at all, the mirror of talk-ios — a regression reached `main` before
+# anything compiled it, and the build could never gate a PR.
+#
+# XNT-215: `pull_request:` carries no `paths:` filter, deliberately. GitHub cannot
+# distinguish a required status check that never ran from one still pending — it
+# blocks the PR indefinitely either way, with no diagnostic. So a `paths:`-filtered
+# or push-only check must never be made required. Every PR compiles even when only
+# docs changed; that is the price of a signal that cannot silently go missing.
 on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
 
 concurrency:
