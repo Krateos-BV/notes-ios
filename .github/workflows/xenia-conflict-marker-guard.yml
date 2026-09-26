@@ -1,0 +1,135 @@
+# SPDX-FileCopyrightText: 2026 XeniaCloud
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Conflict Marker Guard
+
+# Fails any pull request, or any push to the default branch, whose tree still
+# carries unresolved merge-conflict markers.
+#
+# Why this exists (XNT-197): xenia-upstream-sync.yml deliberately commits
+# conflict markers when an upstream merge conflicts, so the PR diff shows
+# exactly what needs resolving. It warns about them in bold in the PR body and
+# never auto-merges. Twice, though, such a PR was merged into main anyway
+# (talk-ios PR #17, and 00a8c5ddf before it), leaving main unbuildable -
+# CocoaPods refuses a conflicted project.pbxproj outright. Nothing mechanically
+# stopped the warned-about merge, and more warning text would not have helped.
+#
+# This job is deliberately cheap and independent of the expensive platform
+# builds: it needs no SDK, no toolchain and no secrets, so it can be made a
+# required status check without waiting on a macOS runner.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same PR makes an in-flight run irrelevant.
+concurrency:
+  group: conflict-markers-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conflict-markers:
+    name: conflict-markers
+    # MUST be a real, matchable label. XNT-197 found that a job pinned to a
+    # non-existent label (ubuntu-latest-low) does not merely skip - it queues
+    # forever and suppresses the whole run's conclusion, so `gh run list`
+    # reports "queued" while another job has already failed. That is how a red
+    # build was mistaken for a pending one. Do not "optimise" this label.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        # On pull_request this checks out the prospective merge commit, which is
+        # the tree that would land on main - exactly what needs scanning. The
+        # sync workflow commits markers as ordinary content, so the merge ref
+        # exists and contains them.
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Scan tracked files for unresolved conflict markers
+        run: |
+          # The marker strings are assembled at runtime rather than written
+          # literally, so that this workflow file does not match its own guard.
+          open=$(printf '%.0s<' 1 2 3 4 5 6 7)
+          close=$(printf '%.0s>' 1 2 3 4 5 6 7)
+          base=$(printf '%.0s|' 1 2 3 4 5 6 7)
+          # Pre-escaped: an unescaped "|" is ERE alternation, and building this
+          # as a bare run of pipes produced "grep: empty (sub)expression" - which
+          # `|| true` then swallowed into a green result. A guard that cannot fail
+          # is worse than no guard, hence the canary below. (XNT-197)
+          base_re=$(printf '%.0s\\|' 1 2 3 4 5 6 7)
+
+          # Only labelled markers are matched: "<<<<<<< ", ">>>>>>> " and the
+          # diff3 "||||||| ", each of which is always followed by a ref name.
+          #
+          # A bare "=======" line is also a conflict marker, but it cannot be
+          # told apart from a Markdown setext heading, a PHP docblock rule or
+          # licence-text underlining. Scanning all eight forks that run the sync
+          # workflow found 13 such legitimate lines (files-desktop ChangeLog,
+          # notes-ios Headings.md, xeniacloud-server CheckSetupController.php
+          # and LICENSES/) and not one real conflict, so matching it would ship
+          # this guard already red and get it switched off. Every git conflict
+          # brackets that line with a labelled pair, so no detection is lost.
+          pattern="^($open|$close|$base_re) "
+
+          # Canary: prove the pattern actually matches real markers before any
+          # clean result is believed. Without this, a typo in the regex reads as
+          # "no conflicts found" - which is exactly how the first draft of this
+          # guard passed a tree full of markers. Uses git grep so the canary
+          # exercises the same regex engine as the real scan.
+          canary=$(mktemp -d)
+          {
+            printf '%s HEAD\n' "$open"
+            printf '%s merged common ancestors\n' "$base"
+            printf '%s upstream/main\n' "$close"
+          } > "$canary/sample"
+          # Run from inside the temp dir: git grep refuses a pathspec that lies
+          # outside the enclosing repository.
+          found=$(cd "$canary" && git grep --no-index -I -h -E "$pattern" -- sample | wc -l | tr -d ' ')
+          rm -rf "$canary"
+          if [ "$found" != "3" ]; then
+            echo "::error::Conflict-marker pattern self-test failed: matched '$found' of 3 synthetic markers. The guard is broken - fix it rather than ignoring this run."
+            exit 1
+          fi
+          echo "Pattern self-test OK (3/3 synthetic markers matched)."
+
+          # git grep --cached scans the blobs recorded in the index. That is
+          # deliberate: piping `git ls-files` into `grep` breaks on submodule
+          # gitlinks ("Is a directory") and on index entries with no file on
+          # disk, and its exit status is unreliable through xargs. git grep has
+          # none of those problems and reports 0 = found, 1 = clean, >1 = error.
+          set +e
+          git grep --cached -I -n -E "$pattern" > markers.txt 2> scan-err.txt
+          rc=$?
+          set -e
+
+          if [ "$rc" -gt 1 ]; then
+            echo "::error::The conflict-marker scan did not run (git grep exit $rc); treating as failure rather than success."
+            cat scan-err.txt
+            exit 1
+          fi
+
+          if [ "$rc" -eq 0 ]; then
+            echo "Unresolved merge-conflict markers are present in the tree:"
+            echo
+            cat markers.txt
+            echo
+            while IFS= read -r hit; do
+              file=${hit%%:*}
+              rest=${hit#*:}
+              line=${rest%%:*}
+              echo "::error file=$file,line=$line::Unresolved merge-conflict marker"
+            done < markers.txt
+            count=$(wc -l < markers.txt | tr -d ' ')
+            echo "::error::$count unresolved conflict marker line(s) found. Resolve them on this branch before merging (XNT-197)."
+            exit 1
+          fi
+
+          echo "No unresolved conflict markers in $(git ls-files | wc -l | tr -d ' ') tracked files."
