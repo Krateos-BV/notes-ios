@@ -93,9 +93,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if !KeychainHelper.server.isEmpty,
             let server = URL(string: KeychainHelper.server),
             let scheme = server.scheme, let host = server.host,
-            let dirGroupApps = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.nextcloud.apps") {
+            let dirGroupApps = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: NCBrandOptions.shared.capabilitiesGroupApps) {
             let account = NKShareAccounts.DataAccounts(withUrl: scheme + "://" + host, user: KeychainHelper.username)
-            _ = NKShareAccounts().putShareAccounts(at: dirGroupApps, app: "nextcloudnotes", dataAccounts: [account])
+            _ = NKShareAccounts().putShareAccounts(at: dirGroupApps, app: "xenianotes", dataAccounts: [account])
         }
     }
     
