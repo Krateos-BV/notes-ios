@@ -64,7 +64,7 @@
 			<string>com.peterandlinda.iOCNotes.actionurl</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>nextcloudnotes</string>
+				<string>xenianotes</string>
 			</array>
 		</dict>
 	</array>

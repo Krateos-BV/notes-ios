@@ -143,7 +143,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     
     @discardableResult
     func handleOpen(url: URL) -> Bool {
-        if let scheme = url.scheme, scheme == "nextcloudnotes" {
+        if let scheme = url.scheme, scheme == "xenianotes" {
             let urlComponents = URLComponents(url: url, resolvingAgainstBaseURL: false)
             if let queryItems = urlComponents?.queryItems,
                 let item = queryItems.first(where: { $0.name == "note" }),

@@ -1,0 +1,200 @@
+# SPDX-FileCopyrightText: 2026 XeniaCloud
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# XeniaCloud release — signed App Store archive, .ipa export and TestFlight upload. XNT-214.
+#
+# Tag push `YY.M.D` (MARKETING_VERSION, the CalVer scheme from XNT-143) archives,
+# exports and uploads. workflow_dispatch archives and exports only, unless `upload`
+# is ticked — so signing can be proven on `main` without putting a build on
+# TestFlight. Same reasoning as XNT-198 on talk-desktop. Promotion from TestFlight
+# to App Review stays manual in App Store Connect.
+#
+# Signing is automatic, driven by an App Store Connect API key with
+# -allowProvisioningUpdates; the team comes from APPLE_TEAM_ID and overrides the
+# project's inherited DEVELOPMENT_TEAM. Secrets live in Infisical and are synced
+# into GitHub secrets. An unscoped or unsynced secret resolves to an EMPTY STRING,
+# not an error (XNT-184), so every one is asserted non-empty before use.
+#
+# CFBundleVersion is CURRENT_PROJECT_VERSION as committed. App Store Connect
+# rejects a second upload with the same version and build number, so bump it
+# (XNT-143's derived build number) before re-tagging.
+
+name: Xenia release (App Store)
+
+on:
+  push:
+    tags:
+      - '[0-9][0-9].[0-9]*.[0-9]*'
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: 'Also upload to TestFlight (otherwise archive and export only)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  SCHEME: iOCNotes
+  BRAND_NAME: Xenia Notes
+
+jobs:
+  release:
+    name: Archive, export and upload
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Required secrets are present
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          missing=0
+          for name in APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is empty or not available to this repository"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Select latest installed Xcode
+        run: |
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          LATEST=${LATEST:-/Applications/Xcode.app}
+          echo "Selecting $LATEST"
+          sudo xcode-select --switch "$LATEST"
+          xcodebuild -version
+
+      - name: Tag matches MARKETING_VERSION
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          marketing_version=$(xcodebuild -showBuildSettings -project iOCNotes.xcodeproj -scheme "$SCHEME" \
+            -configuration Release 2>/dev/null | sed -n 's/^ *MARKETING_VERSION = //p' | head -1)
+          if [ "$marketing_version" != "$TAG" ]; then
+            echo "::error::Tag $TAG does not match MARKETING_VERSION $marketing_version"
+            exit 1
+          fi
+
+      - name: Install App Store Connect API key
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+        run: |
+          key_dir="$HOME/private_keys"
+          mkdir -p "$key_dir"
+          printf '%s\n' "$ASC_KEY_P8" > "$key_dir/AuthKey_$ASC_KEY_ID.p8"
+          echo "ASC_KEY_PATH=$key_dir/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
+
+      - name: Archive
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -project iOCNotes.xcodeproj \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/XeniaNotes.xcarchive" \
+            -skipPackagePluginValidation \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+
+      - name: Export .ipa
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          options="$RUNNER_TEMP/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Add :method string app-store-connect" \
+            -c "Add :destination string export" \
+            -c "Add :signingStyle string automatic" \
+            -c "Add :teamID string $APPLE_TEAM_ID" \
+            -c "Add :manageAppVersionAndBuildNumber bool false" \
+            "$options"
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/XeniaNotes.xcarchive" \
+            -exportOptionsPlist "$options" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          ipa=$(ls "$RUNNER_TEMP"/export/*.ipa)
+          echo "IPA_PATH=$ipa" >> "$GITHUB_ENV"
+
+      # Checked on the shipped bundle, not the xcconfig: a localized InfoPlist.strings
+      # overrides the plist at runtime, which is how "Nextcloud Notes" survived in the
+      # local-network prompt after the plist itself had been rebranded.
+      - name: Verify the exported app
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          unpacked="$RUNNER_TEMP/unpacked"
+          unzip -q "$IPA_PATH" -d "$unpacked"
+          app=$(ls -d "$unpacked"/Payload/*.app)
+          fail=0
+
+          display_name=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$app/Info.plist" 2>/dev/null \
+            || /usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$app/Info.plist")
+          if [ "$display_name" != "$BRAND_NAME" ]; then
+            echo "::error::Bundle name is '$display_name', expected '$BRAND_NAME'"
+            fail=1
+          fi
+
+          leftovers=$( { plutil -p "$app/Info.plist"; for f in "$app"/*.lproj/InfoPlist.strings; do plutil -p "$f"; done; } \
+            | grep -iE 'nextcloud (gmbh|notes)' || true)
+          if [ -n "$leftovers" ]; then
+            echo "::error::Upstream branding in the shipped Info.plist or InfoPlist.strings:"
+            echo "$leftovers"
+            fail=1
+          fi
+
+          team=$(codesign -dv "$app" 2>&1 | sed -n 's/^TeamIdentifier=//p')
+          if [ "$team" != "$APPLE_TEAM_ID" ]; then
+            echo "::error::Signed by team '$team', expected APPLE_TEAM_ID"
+            fail=1
+          fi
+          codesign --verify --deep --strict "$app" || fail=1
+
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' -c 'Print :CFBundleVersion' "$app/Info.plist"
+          exit $fail
+
+      - name: Upload .ipa
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: XeniaNotes-ipa
+          path: ${{ env.IPA_PATH }}
+          if-no-files-found: error
+
+      - name: Upload to TestFlight
+        if: github.ref_type == 'tag' || inputs.upload
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+        run: |
+          xcrun altool --upload-app --type ios --file "$IPA_PATH" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Remove API key
+        if: always()
+        run: rm -rf "$HOME/private_keys"
