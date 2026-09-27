@@ -19,15 +19,15 @@ class NCBrandOptions: NSObject {
 
     private override init() {}
 
-    var brandName: String = "Nextcloud"
-    var textCopyrightNextcloudiOS: String = "Nextcloud Hydrogen for iOS %@ © 2024"
+    var brandName: String = "Xenia Notes"
+    var textCopyrightNextcloudiOS: String = "Xenia Notes for iOS %@ © 2026"
     var textCopyrightNextcloudServer: String = "Nextcloud Server %@"
-    var loginBaseUrl: String = "https://cloud.nextcloud.com"
+    var loginBaseUrl: String = "https://portal.xeniacloud.eu"
 
     var privacyUrl: String = "https://xeniacloud.eu/privacy-statement-eu/"
     var sourceCodeUrl: String = "https://github.com/Krateos-BV/notes-ios"
 
-    var capabilitiesGroup: String = "group.it.twsweb.Crypto-Cloud"
+    var capabilitiesGroup: String = "group.eu.xeniacloud.notes"
     var capabilitiesGroupApps: String = "group.eu.xeniacloud.apps"
 
     var disableCustomLoginUrl: Bool = false
@@ -40,6 +40,6 @@ class NCBrandColor: NSObject {
         return instance
     }()
 
-    let brandColor: UIColor = UIColor(red: 0.0 / 255.0, green: 130.0 / 255.0, blue: 201.0 / 255.0, alpha: 1.0)
+    let brandColor: UIColor = UIColor(red: 0.0 / 255.0, green: 34.0 / 255.0, blue: 102.0 / 255.0, alpha: 1.0)
     var brandTextColor: UIColor = .white
 }

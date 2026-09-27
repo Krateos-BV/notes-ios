@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Design" xmlns="http://www.w3.org/2000/svg" viewBox="93.4617 121.367 283.333 200">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+      }
+    </style>
+  </defs>
+  <g transform="translate(-35.70501,13.034049) scale(1.041667)">
+    <path class="cls-1" d="m 188,296 c -36,0 -64,-28 -64,-62 0,-34 26,-61 60,-62 6,-40 38,-68 76,-68 38,0 70,28 76,68 34,1 60,28 60,62 0,34 -28,62 -64,62 z" />
+  </g>
+</svg>

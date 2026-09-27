@@ -95,7 +95,7 @@ class NCViewerNextcloudText: UIViewController, WKNavigationDelegate, WKScriptMes
 
     func getCustomUserAgentNCText() -> String {
         let version: String = Bundle.main.infoDictionary!["CFBundleShortVersionString"] as! String
-        let userAgent: String = "Mozilla/5.0 (iOS) NextcloudNotes/ " + version
+        let userAgent: String = "Mozilla/5.0 (iOS) XeniaNotes/ " + version
         // return [NSString stringWithFormat:@"Mozilla/5.0 (iOS) %@/%@", userAgent, appVersion];
         if UIDevice.current.userInterfaceIdiom == .phone {
             // NOTE: Hardcoded (May 2022)

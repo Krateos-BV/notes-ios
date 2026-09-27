@@ -19,36 +19,13 @@
     {
       "layers" : [
         {
-          "image-name" : "Notes-white-1.svg",
-          "name" : "Notes-white-1",
+          "image-name" : "Xenia-cloud-white.svg",
+          "name" : "Xenia-cloud-white",
           "position" : {
-            "scale" : 30,
+            "scale" : 3.5,
             "translation-in-points" : [
-              13,
-              -14
-            ]
-          }
-        }
-      ],
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
-      },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
-      }
-    },
-    {
-      "layers" : [
-        {
-          "image-name" : "Notes-white-2.svg",
-          "name" : "Notes-white-2",
-          "position" : {
-            "scale" : 30,
-            "translation-in-points" : [
-              13,
-              -14
+              0,
+              0
             ]
           }
         }
