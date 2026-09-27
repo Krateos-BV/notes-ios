@@ -28,7 +28,7 @@ class NCBrandOptions: NSObject {
     var sourceCodeUrl: String = "https://github.com/nextcloud/notes-ios"
 
     var capabilitiesGroup: String = "group.it.twsweb.Crypto-Cloud"
-    var capabilitiesGroupApps: String = "group.com.nextcloud.apps"
+    var capabilitiesGroupApps: String = "group.eu.xeniacloud.apps"
 
     var disableCustomLoginUrl: Bool = false
     var disableMultiAccount: Bool = false

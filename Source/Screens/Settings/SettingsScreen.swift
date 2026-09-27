@@ -32,7 +32,7 @@ struct SettingsView: View {
     var sharedAccountsExist: Bool = false
 
     init() {
-        if let dirGroupApps = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.nextcloud.apps") {
+        if let dirGroupApps = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: NCBrandOptions.shared.capabilitiesGroupApps) {
             if let shareAccounts = NKShareAccounts().getShareAccount(at: dirGroupApps, application: UIApplication.shared) {
                 var accountTemp = [NKShareAccounts.DataAccounts]()
                 for shareAccount in shareAccounts {
