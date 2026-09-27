@@ -24,8 +24,8 @@ class NCBrandOptions: NSObject {
     var textCopyrightNextcloudServer: String = "Nextcloud Server %@"
     var loginBaseUrl: String = "https://cloud.nextcloud.com"
 
-    var privacyUrl: String = "https://nextcloud.com/privacy"
-    var sourceCodeUrl: String = "https://github.com/nextcloud/notes-ios"
+    var privacyUrl: String = "https://xeniacloud.eu/privacy-statement-eu/"
+    var sourceCodeUrl: String = "https://github.com/Krateos-BV/notes-ios"
 
     var capabilitiesGroup: String = "group.it.twsweb.Crypto-Cloud"
     var capabilitiesGroupApps: String = "group.eu.xeniacloud.apps"
