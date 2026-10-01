@@ -56,9 +56,9 @@ jobs:
       - name: Required secrets are present
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
-          ASC_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
           missing=0
           for name in APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
@@ -91,8 +91,8 @@ jobs:
 
       - name: Install App Store Connect API key
         env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          ASC_KEY_P8: ${{ secrets.APP_STORE_CONNECT_API_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
           key_dir="$HOME/private_keys"
           mkdir -p "$key_dir"
@@ -102,8 +102,8 @@ jobs:
       - name: Archive
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcodebuild archive \
             -project iOCNotes.xcodeproj \
@@ -121,8 +121,8 @@ jobs:
       - name: Export .ipa
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           options="$RUNNER_TEMP/ExportOptions.plist"
           /usr/libexec/PlistBuddy -c "Add :method string app-store-connect" \
@@ -189,8 +189,8 @@ jobs:
       - name: Upload to TestFlight
         if: github.ref_type == 'tag' || inputs.upload
         env:
-          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcrun altool --upload-app --type ios --file "$IPA_PATH" \
             --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
