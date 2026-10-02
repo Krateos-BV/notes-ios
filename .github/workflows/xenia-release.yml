@@ -9,11 +9,18 @@
 # TestFlight. Same reasoning as XNT-198 on talk-desktop. Promotion from TestFlight
 # to App Review stays manual in App Store Connect.
 #
-# Signing is automatic, driven by an App Store Connect API key with
-# -allowProvisioningUpdates; the team comes from APPLE_TEAM_ID and overrides the
-# project's inherited DEVELOPMENT_TEAM. Secrets live in Infisical and are synced
-# into GitHub secrets. An unscoped or unsynced secret resolves to an EMPTY STRING,
-# not an error (XNT-184), so every one is asserted non-empty before use.
+# Export signing is manual, not automatic (XNT-213 finding): ExportOptions.plist's
+# signingCertificate/provisioningProfiles keys only apply under signingStyle=manual
+# (per `xcodebuild -help`). Under automatic, export relied entirely on Cloud Managed
+# Signing to create an App Store distribution profile via the ASC API key, which
+# that key cannot do (likely requires a human Account Holder action) -- every
+# attempt failed with "Cloud signing permission error". The fix: import a real
+# Distribution certificate (manually created, stored as APPLE_DIST_CERT_P12) and a
+# manually-created "Xenia Notes App Store" provisioning profile (APPLE_PROFILE_NOTES),
+# referenced explicitly by name. Archive still uses the ASC API key via
+# -allowProvisioningUpdates, which is sufficient there. Secrets live in Infisical and
+# are synced into GitHub secrets. An unscoped or unsynced secret resolves to an EMPTY
+# STRING, not an error (XNT-184), so every one is asserted non-empty before use.
 #
 # CFBundleVersion is CURRENT_PROJECT_VERSION as committed. App Store Connect
 # rejects a second upload with the same version and build number, so bump it
@@ -42,6 +49,7 @@ permissions:
 env:
   SCHEME: iOCNotes
   BRAND_NAME: Xenia Notes
+  KEYCHAIN_NAME: xenia-release.keychain-db
 
 jobs:
   release:
@@ -59,9 +67,12 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          APPLE_DIST_CERT_P12: ${{ secrets.APPLE_DIST_CERT_P12 }}
+          APPLE_DIST_CERT_PASSWORD: ${{ secrets.APPLE_DIST_CERT_PASSWORD }}
+          APPLE_PROFILE_NOTES: ${{ secrets.APPLE_PROFILE_NOTES }}
         run: |
           missing=0
-          for name in APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+          for name in APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_DIST_CERT_P12 APPLE_DIST_CERT_PASSWORD APPLE_PROFILE_NOTES; do
             if [ -z "${!name}" ]; then
               echo "::error::$name is empty or not available to this repository"
               missing=1
@@ -88,6 +99,62 @@ jobs:
             echo "::error::Tag $TAG does not match MARKETING_VERSION $marketing_version"
             exit 1
           fi
+
+      # --- Signing identity: import the distribution certificate into a
+      # temporary, job-scoped keychain so it never touches the runner's
+      # default login keychain and is gone whether or not the job succeeds.
+      # Mirrors talk-ios's xenia-release.yml (XNT-213).
+      - name: Import distribution certificate into a temporary keychain
+        env:
+          APPLE_DIST_CERT_P12: ${{ secrets.APPLE_DIST_CERT_P12 }}
+          APPLE_DIST_CERT_PASSWORD: ${{ secrets.APPLE_DIST_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          CERT_PATH="$RUNNER_TEMP/dist_cert.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/${{ env.KEYCHAIN_NAME }}"
+
+          echo "$APPLE_DIST_CERT_P12" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security import "$CERT_PATH" \
+            -P "$APPLE_DIST_CERT_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          rm -f "$CERT_PATH"
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      # --- Manually-created App Store distribution profile (XNT-213 finding:
+      # Cloud Managed Signing cannot create one via API key alone). Installed
+      # here so Export can reference it explicitly by name under manual
+      # signing instead of asking Apple to create one on the fly.
+      - name: Install App Store provisioning profile
+        env:
+          APPLE_PROFILE_NOTES: ${{ secrets.APPLE_PROFILE_NOTES }}
+        run: |
+          set -euo pipefail
+          PROFILES_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$PROFILES_DIR"
+
+          tmp_profile=$(mktemp)
+          tmp_plist=$(mktemp)
+          echo "$APPLE_PROFILE_NOTES" | base64 --decode > "$tmp_profile"
+          security cms -D -i "$tmp_profile" > "$tmp_plist"
+          uuid=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$tmp_plist")
+          cp "$tmp_profile" "$PROFILES_DIR/$uuid.mobileprovision"
+          rm -f "$tmp_profile" "$tmp_plist"
+          echo "Installed Xenia Notes App Store -> $uuid.mobileprovision"
 
       - name: Install App Store Connect API key
         env:
@@ -116,24 +183,36 @@ jobs:
             -authenticationKeyPath "$ASC_KEY_PATH" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID"
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
 
-      - name: Export .ipa
+      - name: Write ExportOptions.plist
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           options="$RUNNER_TEMP/ExportOptions.plist"
           /usr/libexec/PlistBuddy -c "Add :method string app-store-connect" \
             -c "Add :destination string export" \
-            -c "Add :signingStyle string automatic" \
+            -c "Add :signingStyle string manual" \
+            -c "Add :signingCertificate string 'Apple Distribution'" \
             -c "Add :teamID string $APPLE_TEAM_ID" \
             -c "Add :manageAppVersionAndBuildNumber bool false" \
+            -c "Add :provisioningProfiles dict" \
+            -c "Add :provisioningProfiles:eu.xeniacloud.notes string 'Xenia Notes App Store'" \
             "$options"
+          echo "--- ExportOptions.plist ---"
+          cat "$options"
+          echo "EXPORT_OPTIONS_PATH=$options" >> "$GITHUB_ENV"
+
+      - name: Export .ipa
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/XeniaNotes.xcarchive" \
-            -exportOptionsPlist "$options" \
+            -exportOptionsPlist "$EXPORT_OPTIONS_PATH" \
             -exportPath "$RUNNER_TEMP/export" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$ASC_KEY_PATH" \
@@ -195,6 +274,8 @@ jobs:
           xcrun altool --upload-app --type ios --file "$IPA_PATH" \
             --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
 
-      - name: Remove API key
+      - name: Clean up temporary keychain and API key
         if: always()
-        run: rm -rf "$HOME/private_keys"
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" || true
+          rm -rf "$HOME/private_keys" || true
