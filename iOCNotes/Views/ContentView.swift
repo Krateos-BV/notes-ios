@@ -89,7 +89,7 @@ struct ContentView: View {
                 }
                 .tag(1)
             }
-            .tint(Color(NCBrandColor.shared.brandColor))
+            .tint(Color(NCBrandColor.shared.tintColor))
         }
     }
 }

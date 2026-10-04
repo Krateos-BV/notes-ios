@@ -42,4 +42,22 @@ class NCBrandColor: NSObject {
 
     let brandColor: UIColor = UIColor(red: 0.0 / 255.0, green: 34.0 / 255.0, blue: 102.0 / 255.0, alpha: 1.0)
     var brandTextColor: UIColor = .white
+
+    // XNT-245: brandColor has no dark-mode variant and is unreadable (~1.15:1
+    // contrast) against a dark background when used as the app-wide tint
+    // (toolbar icons, Settings, tab bar). tintColor keeps brandColor as-is
+    // for light mode but substitutes PHWhiteIcon's own dark-mode grey
+    // (#D9D9D9, already proven legible at 14.9:1 and used everywhere else in
+    // this app) for dark mode, matching the light/dark provider pattern
+    // talk-ios's NCAppBranding.getDynamicColor uses for the same kind of
+    // brand color. brandColor itself is left as a fixed value rather than
+    // made dynamic -- not because anything else depends on it staying fixed
+    // (it doesn't; the login screen's gradient uses its own hardcoded
+    // literals, not this property), just to keep "brand color" and
+    // "UI tint color" as separate concepts.
+    let tintColor: UIColor = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.85, green: 0.85, blue: 0.85, alpha: 1.0)
+            : NCBrandColor.shared.brandColor
+    }
 }
