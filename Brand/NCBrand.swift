@@ -30,7 +30,7 @@ class NCBrandOptions: NSObject {
     var capabilitiesGroup: String = "group.eu.xeniacloud.notes"
     var capabilitiesGroupApps: String = "group.eu.xeniacloud.apps"
 
-    var disableCustomLoginUrl: Bool = false
+    var disableCustomLoginUrl: Bool = true
     var disableMultiAccount: Bool = false
 }
 

@@ -1156,10 +1156,10 @@
 		};
 		F77B56FD2993DE6300A23E76 /* XCRemoteSwiftPackageReference "NextcloudKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/nextcloud/NextcloudKit";
+			repositoryURL = "https://github.com/Krateos-BV/NextcloudKit";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 7.6.0;
+				kind = revision;
+				revision = e0810a5f0a0c6f1747ed35b03848a5d6f1b066e5;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
