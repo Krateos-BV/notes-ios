@@ -1159,7 +1159,7 @@
 			repositoryURL = "https://github.com/Krateos-BV/NextcloudKit";
 			requirement = {
 				kind = revision;
-				revision = 5e252e6562b9b78c35a5663e36899c2628fd29ca;
+				revision = e0810a5f0a0c6f1747ed35b03848a5d6f1b066e5;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
