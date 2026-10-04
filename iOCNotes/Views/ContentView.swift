@@ -39,7 +39,7 @@ struct ContentView: View {
             // ZStack, so it's kept transparent here and the real gradient is applied via
             // `.background` below. Its RGB (not alpha) still drives `.readable`'s contrast
             // calculation, so text/icon colors stay correct against the gradient.
-            ServerAddressView(backgroundColor: .constant(Color(red: 0 / 255, green: 34 / 255, blue: 102 / 255).opacity(0)), brandImage: Image("BrandLogo"), sharedAccounts: sharedAccounts, userAgent: userAgent) { host, name, password in
+            ServerAddressView(backgroundColor: .constant(Color(red: 0 / 255, green: 34 / 255, blue: 102 / 255).opacity(0)), brandImage: Image("BrandLogo"), sharedAccounts: sharedAccounts, userAgent: userAgent, defaultServerAddress: NCBrandOptions.shared.loginBaseUrl) { host, name, password in
                 store.addAccount(host: host, name: name, password: password)
             }
             .background(
