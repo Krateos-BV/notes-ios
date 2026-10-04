@@ -9,18 +9,39 @@
 # TestFlight. Same reasoning as XNT-198 on talk-desktop. Promotion from TestFlight
 # to App Review stays manual in App Store Connect.
 #
-# Export signing is manual, not automatic (XNT-213 finding): ExportOptions.plist's
+# Signing is manual end to end (XNT-213, XNT-251 findings) -- neither Archive nor
+# Export ever asks Apple for anything via Cloud Managed Signing. ExportOptions.plist's
 # signingCertificate/provisioningProfiles keys only apply under signingStyle=manual
-# (per `xcodebuild -help`). Under automatic, export relied entirely on Cloud Managed
-# Signing to create an App Store distribution profile via the ASC API key, which
-# that key cannot do (likely requires a human Account Holder action) -- every
-# attempt failed with "Cloud signing permission error". The fix: import a real
-# Distribution certificate (manually created, stored as APPLE_DIST_CERT_P12) and a
-# manually-created "Xenia Notes App Store" provisioning profile (APPLE_PROFILE_NOTES),
-# referenced explicitly by name. Archive still uses the ASC API key via
-# -allowProvisioningUpdates, which is sufficient there. Secrets live in Infisical and
-# are synced into GitHub secrets. An unscoped or unsynced secret resolves to an EMPTY
-# STRING, not an error (XNT-184), so every one is asserted non-empty before use.
+# (per `xcodebuild -help`), and under automatic, export relied entirely on Cloud
+# Managed Signing to create an App Store distribution profile via the ASC API key,
+# which that key cannot do (likely requires a human Account Holder action) -- every
+# attempt failed with "Cloud signing permission error".
+#
+# Archive looked safe left on CODE_SIGN_STYLE=Automatic with -allowProvisioningUpdates
+# -- a *Development* profile/certificate, not the Distribution one Export needs, so it
+# seemed like a different code path -- but every hosted-runner run throws its keychain
+# away afterwards, so Cloud Managed Signing mints a brand-new Development certificate
+# on every single run and never revokes one. XNT-251: this eventually hit the Apple
+# account's overall certificate quota ("Choose a certificate to revoke") and broke the
+# 26.10.4 tag release outright.
+#
+# The fix for both steps: import a real Distribution certificate (manually created,
+# stored as APPLE_DIST_CERT_P12) and a manually-created "Xenia Notes App Store"
+# provisioning profile (APPLE_PROFILE_NOTES), referenced explicitly by name, with no
+# -allowProvisioningUpdates and no Cloud Managed Signing involved anywhere in this
+# workflow. Secrets live in Infisical and are synced into GitHub secrets. An unscoped
+# or unsynced secret resolves to an EMPTY STRING, not an error (XNT-184), so every one
+# is asserted non-empty before use.
+#
+# CODE_SIGN_STYLE/CODE_SIGN_IDENTITY/PROVISIONING_PROFILE_SPECIFIER are set on the
+# iOCNotes target's Release build configuration in project.pbxproj, NOT passed as
+# `xcodebuild archive KEY=value` command-line overrides. A command-line override
+# applies to every target in the whole build graph, including the synthesized
+# resource-bundle targets for each resolved Swift package (Alamofire_Alamofire,
+# NextcloudKit_NextcloudKitUI, etc.) -- XNT-251 tried that first and Archive failed
+# with "X does not support provisioning profiles, but provisioning profile ... has
+# been manually specified" for six different package targets. Scoping the settings
+# to the one native target in project.pbxproj avoids touching those entirely.
 #
 # CFBundleVersion is CURRENT_PROJECT_VERSION as committed. App Store Connect
 # rejects a second upload with the same version and build number, so bump it
@@ -164,13 +185,10 @@ jobs:
           key_dir="$HOME/private_keys"
           mkdir -p "$key_dir"
           printf '%s\n' "$ASC_KEY_P8" > "$key_dir/AuthKey_$ASC_KEY_ID.p8"
-          echo "ASC_KEY_PATH=$key_dir/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
 
       - name: Archive
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcodebuild archive \
             -project iOCNotes.xcodeproj \
@@ -179,12 +197,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/XeniaNotes.xcarchive" \
             -skipPackagePluginValidation \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
             OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
 
       - name: Write ExportOptions.plist
@@ -206,18 +219,11 @@ jobs:
           echo "EXPORT_OPTIONS_PATH=$options" >> "$GITHUB_ENV"
 
       - name: Export .ipa
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/XeniaNotes.xcarchive" \
             -exportOptionsPlist "$EXPORT_OPTIONS_PATH" \
-            -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -exportPath "$RUNNER_TEMP/export"
           ipa=$(ls "$RUNNER_TEMP"/export/*.ipa)
           echo "IPA_PATH=$ipa" >> "$GITHUB_ENV"
 
