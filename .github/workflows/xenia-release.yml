@@ -33,6 +33,16 @@
 # or unsynced secret resolves to an EMPTY STRING, not an error (XNT-184), so every one
 # is asserted non-empty before use.
 #
+# CODE_SIGN_STYLE/CODE_SIGN_IDENTITY/PROVISIONING_PROFILE_SPECIFIER are set on the
+# iOCNotes target's Release build configuration in project.pbxproj, NOT passed as
+# `xcodebuild archive KEY=value` command-line overrides. A command-line override
+# applies to every target in the whole build graph, including the synthesized
+# resource-bundle targets for each resolved Swift package (Alamofire_Alamofire,
+# NextcloudKit_NextcloudKitUI, etc.) -- XNT-251 tried that first and Archive failed
+# with "X does not support provisioning profiles, but provisioning profile ... has
+# been manually specified" for six different package targets. Scoping the settings
+# to the one native target in project.pbxproj avoids touching those entirely.
+#
 # CFBundleVersion is CURRENT_PROJECT_VERSION as committed. App Store Connect
 # rejects a second upload with the same version and build number, so bump it
 # (XNT-143's derived build number) before re-tagging.
@@ -175,7 +185,6 @@ jobs:
           key_dir="$HOME/private_keys"
           mkdir -p "$key_dir"
           printf '%s\n' "$ASC_KEY_P8" > "$key_dir/AuthKey_$ASC_KEY_ID.p8"
-          echo "ASC_KEY_PATH=$key_dir/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
 
       - name: Archive
         env:
@@ -189,9 +198,6 @@ jobs:
             -archivePath "$RUNNER_TEMP/XeniaNotes.xcarchive" \
             -skipPackagePluginValidation \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution" \
-            PROVISIONING_PROFILE_SPECIFIER="Xenia Notes App Store" \
             OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
 
       - name: Write ExportOptions.plist
@@ -213,18 +219,11 @@ jobs:
           echo "EXPORT_OPTIONS_PATH=$options" >> "$GITHUB_ENV"
 
       - name: Export .ipa
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/XeniaNotes.xcarchive" \
             -exportOptionsPlist "$EXPORT_OPTIONS_PATH" \
-            -exportPath "$RUNNER_TEMP/export" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$ASC_KEY_PATH" \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -exportPath "$RUNNER_TEMP/export"
           ipa=$(ls "$RUNNER_TEMP"/export/*.ipa)
           echo "IPA_PATH=$ipa" >> "$GITHUB_ENV"
 
