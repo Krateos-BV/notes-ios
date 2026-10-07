@@ -246,9 +246,15 @@ struct KeychainHelper {
         }
     }
 
+    ///
+    /// Whether notes open in the built-in editor rather than the server's direct editing web editor.
+    ///
+    /// Defaults to `true` when the user has never set it, because the server's direct editing endpoint can refuse to open notes.
+    /// An explicit choice stored under the key, `true` or `false`, is returned unchanged.
+    ///
     static var internalEditor: Bool {
         get {
-            return UserDefaults.standard.bool(forKey: "InternalEditor")
+            return UserDefaults.standard.object(forKey: "InternalEditor") as? Bool ?? true
         }
         set {
             UserDefaults.standard.set(newValue, forKey: "InternalEditor")

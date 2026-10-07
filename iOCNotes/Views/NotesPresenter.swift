@@ -102,7 +102,7 @@ enum NotesPresenter {
                 } else {
                     let title = NSLocalizedString("Error", comment: "Title of an error alert")
                     let messageFormat = NSLocalizedString("Cannot open file for direct editing: %@", comment: "Direct editing failure followed by the underlying error")
-                    let alert = UIAlertController(title: title, message: String(format: messageFormat, error.localizedDescription), preferredStyle: .alert)
+                    let alert = UIAlertController(title: title, message: String(format: messageFormat, directEditingFailureDetail(error)), preferredStyle: .alert)
                     alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Default action"), style: .default))
                     presenter.present(alert, animated: true)
                 }
@@ -110,5 +110,15 @@ enum NotesPresenter {
         }
 
         return true
+    }
+
+    ///
+    /// The detail shown when direct editing fails.
+    ///
+    /// `NKError` is a plain `Error`, so its `localizedDescription` is the generic "NKError error 1"; use its own description and code instead.
+    ///
+    static func directEditingFailureDetail(_ error: NKError) -> String {
+        let description = error.errorDescription.isEmpty ? HTTPURLResponse.localizedString(forStatusCode: error.errorCode) : error.errorDescription
+        return "\(description) (\(error.errorCode))"
     }
 }
