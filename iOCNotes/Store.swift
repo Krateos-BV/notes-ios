@@ -174,6 +174,7 @@ final class Store: Logging, Storing {
     func addAccount(host: URL, name: String, password: String) {
         logger.debug("Creating account for user \"\(name)\" on \"\(host)\"...")
 
+        resetSyncValidators()
         KeychainHelper.server = host.absoluteString
         KeychainHelper.username = name
         KeychainHelper.password = password
@@ -188,8 +189,20 @@ final class Store: Logging, Storing {
         KeychainHelper.server = ""
         KeychainHelper.username = ""
         KeychainHelper.password = ""
+        resetSyncValidators()
         Note.reset()
         reloadAccounts()
+    }
+
+    ///
+    /// Forget the `ETag` and `Last-Modified` values of the last full notes fetch.
+    ///
+    /// They are sent as `If-None-Match` and `pruneBefore` with the next full fetch and only make sense for the notes already in the local database.
+    /// Keeping them across a logout makes the server answer `304 Not Modified` (or strip every note down to its ID) for an empty database, so the notes list stays empty after logging in again.
+    ///
+    private func resetSyncValidators() {
+        KeychainHelper.eTag = ""
+        KeychainHelper.lastModified = 0
     }
 
     // MARK: Shared Accounts
