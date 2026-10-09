@@ -18,6 +18,11 @@ on:
     # Every Monday 06:00 UTC.
     - cron: '0 6 * * 1'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Look up the sync PR and attempt the merge, but do not push or open a PR'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -63,14 +68,28 @@ jobs:
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "$count new upstream commit(s)"
 
+      # --repo is load-bearing. Without it gh resolves the repository from the git remotes
+      # and, with no TTY, prefers the remote named `upstream` (added above) over `origin`,
+      # so it searched nextcloud/* for our sync PR, never found it, force-pushed over the
+      # open PR's branch and then failed with "A pull request already exists". (XEN-284)
       - name: Check for an existing open sync PR
         id: existing
         if: steps.check.outputs.count != '0'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          UPSTREAM_COUNT: ${{ steps.check.outputs.count }}
         run: |
-          open_pr=$(gh pr list --state open --head upstream-sync/main --json number --jq '.[0].number // ""')
+          open_pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --head upstream-sync/main --json number --jq '.[0].number // ""')
           echo "pr=$open_pr" >> "$GITHUB_OUTPUT"
+          if [ -n "$open_pr" ]; then
+            # An open sync PR may carry human conflict resolutions, so it is never
+            # overwritten. Skip loudly instead of silently.
+            msg="Sync PR #$open_pr is still open in $GITHUB_REPOSITORY - leaving upstream-sync/main untouched. $UPSTREAM_COUNT upstream commit(s) are pending; merge or close #$open_pr and the next run picks them up."
+            echo "::notice title=Upstream sync skipped::$msg"
+            echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No open sync PR with head upstream-sync/main in $GITHUB_REPOSITORY."
+          fi
 
       - name: Configure git identity
         if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
@@ -101,17 +120,23 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Push sync branch
-        if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
+        if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == '' && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" upstream-sync/main --force
+        run: |
+          # The branch is workflow-owned and no open PR uses it (checked above), so it may be
+          # replaced - but only if it is still exactly what checkout fetched (or still absent).
+          # A commit pushed to it since then makes this push fail instead of vanishing. (XEN-284)
+          expected=$(git rev-parse -q --verify "refs/remotes/origin/upstream-sync/main" || true)
+          echo "Replacing upstream-sync/main (lease: ${expected:-must not exist}) with $(git rev-parse HEAD)"
+          git push --force-with-lease="upstream-sync/main:${expected}" "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" upstream-sync/main
 
       # Created via the REST API rather than `gh pr create`: the CLI goes through the
       # GraphQL createPullRequest mutation, which refused an App installation token with
       # "Resource not accessible by integration" even with pull_requests: write granted.
       # The REST endpoint accepts the same token. (XNT-184)
       - name: Open PR
-        if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
+        if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == '' && inputs.dry_run != true
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           UPSTREAM_COUNT: ${{ steps.check.outputs.count }}
@@ -130,6 +155,8 @@ jobs:
 
           This PR is never auto-merged - review each commit for conflicts with our branding, bundle ID, CalVer versioning, and release plumbing before merging.
 
+          Merge it with **Create a merge commit** - never squash or rebase. Either drops the upstream ancestry, and the same upstream commits then come back in the next sync (XEN-256).
+
           ## Upstream commits
 
           $UPSTREAM_LOG
@@ -144,3 +171,14 @@ jobs:
             '{title: $title, head: $head, base: $base, body: $body}' \
           | gh api --method POST "repos/${GITHUB_REPOSITORY}/pulls" --input - \
               --jq '"Opened PR #\(.number): \(.html_url)"'
+
+      - name: Dry run report
+        if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == '' && inputs.dry_run == true
+        env:
+          UPSTREAM_COUNT: ${{ steps.check.outputs.count }}
+          MERGE_CLEAN: ${{ steps.merge.outputs.clean }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          msg="DRY RUN: would replace upstream-sync/main in $GITHUB_REPOSITORY with $(git rev-parse --short HEAD) and open a PR against $BASE ($UPSTREAM_COUNT upstream commit(s), clean merge: $MERGE_CLEAN). Nothing was pushed."
+          echo "::notice title=Upstream sync dry run::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
