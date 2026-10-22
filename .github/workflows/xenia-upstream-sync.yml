@@ -49,11 +49,13 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.XENIA_SYNC_APP_ID }}
+          # The App's client ID is an identifier, not a secret (read it with:
+          # gh api /apps/xenia-upstream-sync --jq .client_id).
+          client-id: Iv23li86RZXU8iKG6Dx1
           private-key: ${{ secrets.XENIA_SYNC_APP_PRIVATE_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -101,6 +103,8 @@ jobs:
         id: merge
         if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
         run: |
+          # Base tip the sync branch is cut from, for the commit list below.
+          echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           git checkout -b upstream-sync/main
           if git merge upstream/main --no-edit; then
             echo "clean=true" >> "$GITHUB_OUTPUT"
@@ -113,11 +117,23 @@ jobs:
       - name: List upstream commits
         id: log
         if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == ''
+        env:
+          BASE_SHA: ${{ steps.merge.outputs.base }}
         run: |
-          log=$(git log --format='- %h %s' HEAD..upstream/main)
-          echo "log<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$log" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          # Listed against the pre-merge base: after the merge HEAD contains
+          # upstream/main, so HEAD..upstream/main is empty. Capped so a large sync
+          # stays under GitHub's 65,536-character PR body limit.
+          total=$(git rev-list --count "$BASE_SHA..upstream/main")
+          log=$(git log --max-count=300 --format='- %h %s' "$BASE_SHA..upstream/main")
+          if [ "$total" -gt 300 ]; then
+            log="$log
+          - ... and $((total - 300)) more (git log $BASE_SHA..upstream/main)"
+          fi
+          {
+            echo "log<<EOF"
+            echo "$log"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Push sync branch
         if: steps.check.outputs.count != '0' && steps.existing.outputs.pr == '' && inputs.dry_run != true
@@ -144,6 +160,11 @@ jobs:
           MERGE_CLEAN: ${{ steps.merge.outputs.clean }}
         run: |
           status_line="This merge was clean."
+          # A code fence keeps upstream commit subjects inert: an @mention or an
+          # owner/repo#N reference would otherwise notify people or leave a
+          # cross-reference on the upstream issue. Four backticks so a subject
+          # containing a three-backtick fence cannot close it.
+          fence='````'
           if [ "$MERGE_CLEAN" != "true" ]; then
             status_line="**This merge has unresolved conflicts** (committed as-is with conflict markers) - resolve them on this branch before merging."
           fi
@@ -159,7 +180,9 @@ jobs:
 
           ## Upstream commits
 
+          ${fence}text
           $UPSTREAM_LOG
+          ${fence}
           EOF
           )
 
