@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 import NextcloudKit
+import os
 import UIKit
 
 ///
@@ -11,6 +12,8 @@ import UIKit
 /// segues provided before the list was rewritten in SwiftUI.
 ///
 enum NotesPresenter {
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "", category: "NotesPresenter")
+
     ///
     /// Open the given note, using the server's collaborative text editor when direct editing is available and the
     /// built-in editor otherwise.
@@ -18,9 +21,17 @@ enum NotesPresenter {
     @discardableResult
     static func openEditor(for note: Note, isNewNote: Bool) -> Bool {
         if isDirectEditingAvailable {
-            return openInDirectEditing(note: note)
+            return openInDirectEditing(note: note, isNewNote: isNewNote)
         }
 
+        return openInBuiltInEditor(note: note, isNewNote: isNewNote)
+    }
+
+    ///
+    /// Open the given note in the app's own editor.
+    ///
+    @discardableResult
+    private static func openInBuiltInEditor(note: Note, isNewNote: Bool) -> Bool {
         let storyboard = UIStoryboard(name: "Main_iPhone", bundle: nil)
         guard let navigationController = storyboard.instantiateViewController(withIdentifier: "Editor") as? UINavigationController,
               let editor = navigationController.topViewController as? EditorViewController,
@@ -80,7 +91,7 @@ enum NotesPresenter {
         return reachability == .reachableCellular || reachability == .reachableEthernetOrWiFi
     }
 
-    private static func openInDirectEditing(note: Note) -> Bool {
+    private static func openInDirectEditing(note: Note, isNewNote: Bool) -> Bool {
         guard let account = KeychainHelper.account,
               UIApplication.topViewController() != nil else {
             return false
@@ -99,6 +110,10 @@ enum NotesPresenter {
                     let navigationController = UINavigationController(rootViewController: viewController)
                     navigationController.modalPresentationStyle = .fullScreen
                     presenter.present(navigationController, animated: true)
+                } else if openInBuiltInEditor(note: note, isNewNote: isNewNote) {
+                    // The server refused direct editing (XEN-217). Fall back to the built-in editor instead of
+                    // leaving the user with an error, so the note always opens.
+                    logger.error("Direct editing failed, opened the built-in editor instead: \(directEditingFailureDetail(error), privacy: .public)")
                 } else {
                     let title = NSLocalizedString("Error", comment: "Title of an error alert")
                     let messageFormat = NSLocalizedString("Cannot open file for direct editing: %@", comment: "Direct editing failure followed by the underlying error")
