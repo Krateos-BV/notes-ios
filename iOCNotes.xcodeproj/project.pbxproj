@@ -1158,8 +1158,13 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/Krateos-BV/NextcloudKit";
 			requirement = {
+<<<<<<< HEAD
 				kind = revision;
 				revision = e0810a5f0a0c6f1747ed35b03848a5d6f1b066e5;
+=======
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.6.2;
+>>>>>>> upstream/main
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
