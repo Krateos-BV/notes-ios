@@ -20,18 +20,6 @@ enum NotesPresenter {
     ///
     @discardableResult
     static func openEditor(for note: Note, isNewNote: Bool) -> Bool {
-<<<<<<< HEAD
-        if isDirectEditingAvailable {
-            return openInDirectEditing(note: note, isNewNote: isNewNote)
-        }
-
-        return openInBuiltInEditor(note: note, isNewNote: isNewNote)
-    }
-
-    ///
-    /// Open the given note in the app's own editor.
-    ///
-=======
         guard isDirectEditingAvailable, !note.addNeeded || NoteSessionManager.isOnline else {
             return openInBuiltInEditor(note: note, isNewNote: isNewNote)
         }
@@ -39,7 +27,9 @@ enum NotesPresenter {
         return openInDirectEditing(note: note, isNewNote: isNewNote)
     }
 
->>>>>>> 34d960d445ae88c2cd4c812f4aa24d64b6787774
+    ///
+    /// Open the given note in the app's own editor.
+    ///
     @discardableResult
     private static func openInBuiltInEditor(note: Note, isNewNote: Bool) -> Bool {
         let storyboard = UIStoryboard(name: "Main_iPhone", bundle: nil)
@@ -110,33 +100,18 @@ enum NotesPresenter {
 
         viewer.fileName = note.title
 
-<<<<<<< HEAD
-                if error == .success,
-                   let url,
-                   let viewController = UIStoryboard(name: "NCViewerNextcloudText", bundle: nil).instantiateInitialViewController() as? NCViewerNextcloudText {
-                    viewController.link = url
-                    viewController.fileName = note.title
-
-                    let navigationController = UINavigationController(rootViewController: viewController)
-                    navigationController.modalPresentationStyle = .fullScreen
-                    presenter.present(navigationController, animated: true)
-                } else if openInBuiltInEditor(note: note, isNewNote: isNewNote) {
-                    // The server refused direct editing (XEN-217). Fall back to the built-in editor instead of
-                    // leaving the user with an error, so the note always opens.
-                    logger.error("Direct editing failed, opened the built-in editor instead: \(directEditingFailureDetail(error), privacy: .public)")
-                } else {
-                    let title = NSLocalizedString("Error", comment: "Title of an error alert")
-                    let messageFormat = NSLocalizedString("Cannot open file for direct editing: %@", comment: "Direct editing failure followed by the underlying error")
-                    let alert = UIAlertController(title: title, message: String(format: messageFormat, directEditingFailureDetail(error)), preferredStyle: .alert)
-                    alert.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: "Default action"), style: .default))
-                    presenter.present(alert, animated: true)
-                }
-            }
-=======
         viewer.loadLink = {
-            try await directEditingURL(for: note, account: account)
->>>>>>> 34d960d445ae88c2cd4c812f4aa24d64b6787774
+            do {
+                return try await directEditingURL(for: note, account: account)
+            } catch {
+                logger.error("Direct editing failed, opening the built-in editor instead: \(directEditingFailureDetail(error), privacy: .public)")
+                throw error
+            }
         }
+
+        // The server refused direct editing (XEN-217). Open the built-in editor instead of
+        // leaving the user with an error, so the note always opens.
+        viewer.switchesToInternalEditorWhenLinkFails = true
 
         viewer.switchToInternalEditor = {
             guard note.managedObjectContext != nil else { return }
@@ -151,16 +126,6 @@ enum NotesPresenter {
         return true
     }
 
-<<<<<<< HEAD
-    ///
-    /// The detail shown when direct editing fails.
-    ///
-    /// `NKError` is a plain `Error`, so its `localizedDescription` is the generic "NKError error 1"; use its own description and code instead.
-    ///
-    static func directEditingFailureDetail(_ error: NKError) -> String {
-        let description = error.errorDescription.isEmpty ? HTTPURLResponse.localizedString(forStatusCode: error.errorCode) : error.errorDescription
-        return "\(description) (\(error.errorCode))"
-=======
     @MainActor
     private static func directEditingURL(for note: Note, account: String) async throws -> URL {
         if note.addNeeded {
@@ -178,6 +143,19 @@ enum NotesPresenter {
         guard let link = result.url, let url = URL(string: link) else { throw NKError.invalidResponseError }
 
         return url
->>>>>>> 34d960d445ae88c2cd4c812f4aa24d64b6787774
+    }
+
+    ///
+    /// The detail logged when direct editing fails.
+    ///
+    /// `NKError` is a plain `Error`, so its `localizedDescription` is the generic "NKError error 1"; use its own description and code instead.
+    ///
+    static func directEditingFailureDetail(_ error: Error) -> String {
+        guard let error = error as? NKError else {
+            return error.localizedDescription
+        }
+
+        let description = error.errorDescription.isEmpty ? HTTPURLResponse.localizedString(forStatusCode: error.errorCode) : error.errorDescription
+        return "\(description) (\(error.errorCode))"
     }
 }

@@ -18,6 +18,9 @@ class NCViewerNextcloudText: UIViewController, WKNavigationDelegate, WKScriptMes
 
     var switchToInternalEditor: (() -> Void)?
 
+    /// Xenia (XEN-217): when ``loadLink`` fails, open the built-in editor right away instead of showing an error.
+    var switchesToInternalEditorWhenLinkFails = false
+
     private var isLoaded = false
     private var isShowingLoadError = false
     private var isClosed = false
@@ -78,6 +81,12 @@ class NCViewerNextcloudText: UIViewController, WKNavigationDelegate, WKScriptMes
 
                 webView.load(request)
             } catch {
+                if switchesToInternalEditorWhenLinkFails, let switchToInternalEditor, !isClosed, !isShowingLoadError, (error as NSError).code != NSURLErrorCancelled {
+                    hud.dismiss()
+                    viewUnload(completion: switchToInternalEditor)
+                    return
+                }
+
                 failToLoad(with: error)
             }
         }

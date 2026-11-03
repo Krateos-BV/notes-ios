@@ -189,11 +189,8 @@ final class Store: Logging, Storing {
         KeychainHelper.server = ""
         KeychainHelper.username = ""
         KeychainHelper.password = ""
-<<<<<<< HEAD
         resetSyncValidators()
-=======
         KeychainHelper.notesApiVersion = Router.defaultApiVersion
->>>>>>> 34d960d445ae88c2cd4c812f4aa24d64b6787774
         Note.reset()
         reloadAccounts()
     }
