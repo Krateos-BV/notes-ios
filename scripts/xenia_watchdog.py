@@ -45,6 +45,7 @@ STATE_LABELS = ("needs-human", "ci-pending", "ci-red", "no-ci", "ready-for-revie
 ALARM_STATES = ("needs-human", "ci-red", "no-ci", "ready-for-review")
 BAD_CONCLUSIONS = ("failure", "timed_out", "cancelled", "action_required", "startup_failure", "stale")
 ISSUE_LABEL = "upstream-watch"
+ISSUE_TITLE = "Upstream release needs you"
 ASSIGNEE = "xeniacloud"
 KEYS_RE = re.compile(r"<!-- xenia-watchdog-keys: (\[.*?\]) -->")
 
@@ -233,13 +234,21 @@ def apply(gh, alarms, label_changes):
             gh.call("DELETE", f"/repos/{repo}/issues/{number}/labels/{name}")
         if add:
             gh.call("POST", f"/repos/{repo}/issues/{number}/labels", {"labels": ["upstream-release", state]})
-    issues = [i for i in gh.get_all(f"/repos/{repo}/issues?state=open&labels={ISSUE_LABEL}") if "pull_request" not in i]
+    # Found by title as well as label: GitHub silently drops labels and assignees
+    # sent with an App's create-issue call, so an unlabelled copy must still count.
+    open_issues = [i for i in gh.get_all(f"/repos/{repo}/issues?state=open") if "pull_request" not in i]
+    issues = [i for i in open_issues
+              if ISSUE_LABEL in [l["name"] for l in i.get("labels", [])] or i.get("title") == ISSUE_TITLE]
     issue = issues[0] if issues else None
     for action, payload in plan_notification(issue, alarms):
         if action == "create":
-            gh.call("POST", f"/repos/{repo}/issues", {
-                "title": "Upstream release needs you", "body": payload,
-                "labels": [ISSUE_LABEL], "assignees": [ASSIGNEE]})
+            created, _ = gh.call("POST", f"/repos/{repo}/issues", {"title": ISSUE_TITLE, "body": payload})
+            number = created["number"]
+            gh.call("POST", f"/repos/{repo}/issues/{number}/labels", {"labels": [ISSUE_LABEL]})
+            gh.call("POST", f"/repos/{repo}/issues/{number}/assignees", {"assignees": [ASSIGNEE]})
+            # Assigning alone may not notify, so mention the assignee once.
+            gh.call("POST", f"/repos/{repo}/issues/{number}/comments",
+                    {"body": f"@{ASSIGNEE} something needs you:\n\n" + "\n".join(f"- {t}" for _, t in alarms)})
         elif action == "update":
             gh.call("PATCH", f"/repos/{repo}/issues/{issue['number']}", {"body": payload})
         elif action == "comment":

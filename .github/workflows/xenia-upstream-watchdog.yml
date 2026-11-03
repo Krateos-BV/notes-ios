@@ -35,6 +35,7 @@ permissions:
   actions: read
   checks: read
   pull-requests: read
+  issues: read
 
 concurrency:
   group: xenia-upstream-watchdog
