@@ -64,6 +64,9 @@ jobs:
           echo "Using simulator $UDID"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
+      # Ad-hoc signing (no certificate needed) gives the simulator app keychain access, which the
+      # network tests' credentials need; an unsigned build silently fails every keychain write.
+      # Ported from nextcloud/notes-ios (XEN-306).
       - name: Run unit tests
         run: |
           xcodebuild test \
@@ -73,7 +76,7 @@ jobs:
             -resultBundlePath TestResults.xcresult \
             -skipPackagePluginValidation \
             -parallel-testing-enabled NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=
 
       - name: Show failure details
         if: failure()
