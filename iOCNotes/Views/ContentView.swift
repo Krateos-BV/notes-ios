@@ -15,6 +15,42 @@ struct ContentView: View {
 
     @State var selection: Int = 0
 
+    ///
+    /// Show once at launch, after which ``KeychainHelper/shouldShowOnboarding`` is set to false.
+    ///
+    @State private var isPresentingOnboarding = KeychainHelper.shouldShowOnboarding
+
+    private var onboardingTitle: String {
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? NCBrandOptions.shared.brandName
+
+        return String(localized: "Welcome to \(appName)", comment: "Onboarding title. The placeholder is the app name.")
+    }
+
+    private var onboardingFeatures: [OnboardingFeature] {
+        [
+            OnboardingFeature(
+                icon: Image(systemName: "lock.shield"),
+                title: String(localized: "Your Data, Your Control", comment: "Onboarding feature title."),
+                description: String(localized: "Keep your data secure and under your control.", comment: "Onboarding feature description.")
+            ),
+            OnboardingFeature(
+                icon: Image(systemName: "person.2"),
+                title: String(localized: "Secure Collaboration", comment: "Onboarding feature title."),
+                description: String(localized: "Work together and exchange files securely.", comment: "Onboarding feature description.")
+            ),
+            OnboardingFeature(
+                icon: Image(systemName: "arrow.triangle.2.circlepath"),
+                title: String(localized: "Always in Sync", comment: "Onboarding feature title."),
+                description: String(localized: "Your notes stay up to date across all your devices.", comment: "Onboarding feature description.")
+            ),
+            OnboardingFeature(
+                icon: Image(systemName: "wifi.slash"),
+                title: String(localized: "Works Offline", comment: "Onboarding feature title."),
+                description: String(localized: "Keep writing even without a connection.", comment: "Onboarding feature description.")
+            )
+        ]
+    }
+
     var sharedAccounts: [SharedAccount] {
         store.sharedAccounts.compactMap {
             guard let url = URL(string: $0.url) else {
@@ -34,12 +70,26 @@ struct ContentView: View {
     }
 
     var body: some View {
+<<<<<<< HEAD
         if store.accounts.isEmpty {
             // `backgroundColor` is painted as an opaque fill inside ServerAddressView's own
             // ZStack, so it's kept transparent here and the real gradient is applied via
             // `.background` below. Its RGB (not alpha) still drives `.readable`'s contrast
             // calculation, so text/icon colors stay correct against the gradient.
             ServerAddressView(backgroundColor: .constant(Color(red: 0 / 255, green: 34 / 255, blue: 102 / 255).opacity(0)), brandImage: Image("BrandLogo"), sharedAccounts: sharedAccounts, userAgent: userAgent, defaultServerAddress: NCBrandOptions.shared.loginBaseUrl, lockServerAddress: NCBrandOptions.shared.disableCustomLoginUrl) { host, name, password in
+=======
+        if store.accounts.isEmpty && isPresentingOnboarding {
+            OnboardingView(title: onboardingTitle, features: onboardingFeatures, tint: Color.accent) {
+                withAnimation {
+                    isPresentingOnboarding = false
+                }
+            }
+            .onAppear {
+                KeychainHelper.shouldShowOnboarding = false
+            }
+        } else if store.accounts.isEmpty {
+            ServerAddressView(backgroundColor: .constant(Color.accent), brandImage: Image("BrandLogo"), sharedAccounts: sharedAccounts, userAgent: userAgent) { host, name, password in
+>>>>>>> 34d960d445ae88c2cd4c812f4aa24d64b6787774
                 store.addAccount(host: host, name: name, password: password)
             }
             .background(
