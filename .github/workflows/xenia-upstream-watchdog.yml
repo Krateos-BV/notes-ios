@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: 2026 XeniaCloud
+# SPDX-License-Identifier: MIT
+
+name: Xenia Upstream Watchdog
+
+# Every two hours: labels open upstream-release PRs from their CI results and
+# keeps one "Upstream release needs you" issue assigned to Vasilis, commented only
+# when something new needs him (PR ready, needs a person, red CI, a job stuck on
+# the Mac Mini, release detection stopped). Logic and self-test live in
+# scripts/xenia_watchdog.py. (XEN-317)
+#
+# It only reads CI state and writes labels and that one issue. It never merges,
+# re-runs, cancels or approves anything.
+
+on:
+  schedule:
+    - cron: '17 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Check and print only; write no labels or issue'
+        type: boolean
+        default: true
+      queued_max_min:
+        description: 'Override: minutes a job may stay queued (default 120)'
+        type: string
+        default: ''
+      running_max_min:
+        description: 'Override: minutes a job may run (default 90)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+  pull-requests: read
+
+concurrency:
+  group: xenia-upstream-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # The App token (not GITHUB_TOKEN) writes the issue, so its comments notify
+      # Vasilis like a person's would. Needs the App's Issues: read and write.
+      - name: Mint a GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: Iv23li86RZXU8iKG6Dx1
+          private-key: ${{ secrets.XENIA_SYNC_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Self-test the watchdog
+        run: python3 -I scripts/xenia_watchdog.py --self-test
+
+      - name: Check and notify
+        env:
+          READ_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          QUEUED_MAX_MIN: ${{ inputs.queued_max_min }}
+          RUNNING_MAX_MIN: ${{ inputs.running_max_min }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python3 -I scripts/xenia_watchdog.py --dry-run
+          else
+            python3 -I scripts/xenia_watchdog.py
+          fi
