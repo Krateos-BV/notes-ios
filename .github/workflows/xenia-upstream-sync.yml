@@ -205,3 +205,65 @@ jobs:
           msg="DRY RUN: would replace upstream-sync/main in $GITHUB_REPOSITORY with $(git rev-parse --short HEAD) and open a PR against $BASE ($UPSTREAM_COUNT upstream commit(s), clean merge: $MERGE_CLEAN). Nothing was pushed."
           echo "::notice title=Upstream sync dry run::$msg"
           echo "$msg" >> "$GITHUB_STEP_SUMMARY"
+
+      # Drift alarm (XEN-308). While a sync PR stays open, every later run only writes
+      # a notice, so the fork could fall far behind without anyone seeing it. This step
+      # turns the run red (visible in Actions and in the failure email) when the drift
+      # passes a limit. It runs last, so the sync PR is still opened or kept first.
+      #   - pending upstream commits above MAX_PENDING
+      #   - the open sync PR older than MAX_PR_AGE_DAYS
+      #   - the newest upstream release tag not in main MAX_RELEASE_LAG_DAYS after it
+      #     was cut (we merge upstream releases, not the tip)
+      - name: Drift alarm
+        if: ${{ !cancelled() && steps.check.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          UPSTREAM_COUNT: ${{ steps.check.outputs.count }}
+          OPEN_PR: ${{ steps.existing.outputs.pr }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          MAX_PENDING: '40'
+          MAX_PR_AGE_DAYS: '35'
+          MAX_RELEASE_LAG_DAYS: '21'
+        run: |
+          problems=0
+          now=$(date +%s)
+          main_sha=$(git rev-parse "refs/remotes/origin/$DEFAULT_BRANCH")
+
+          if [ "$UPSTREAM_COUNT" -gt "$MAX_PENDING" ]; then
+            echo "::error title=Upstream drift::$UPSTREAM_COUNT upstream commits are not in $DEFAULT_BRANCH (limit $MAX_PENDING)."
+            problems=$((problems + 1))
+          fi
+
+          if [ -n "$OPEN_PR" ]; then
+            created=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$OPEN_PR" --jq .created_at)
+            age=$(( (now - $(date -d "$created" +%s)) / 86400 ))
+            if [ "$age" -gt "$MAX_PR_AGE_DAYS" ]; then
+              echo "::error title=Upstream drift::Sync PR #$OPEN_PR has been open $age days (limit $MAX_PR_AGE_DAYS)."
+              problems=$((problems + 1))
+            fi
+          fi
+
+          # Newest plain release tag upstream (35.2.2, v25.0.2; no alpha/beta/rc). The tag
+          # is fetched into its own ref namespace so it never touches our own tags.
+          latest=$(git ls-remote --tags --refs upstream \
+            | awk '{sub("refs/tags/", "", $2); print $2}' \
+            | grep -E '^v?[0-9]+(\.[0-9]+)+$' \
+            | awk '{k = $0; sub(/^v/, "", k); print k " " $0}' \
+            | sort -V -k1,1 | tail -n 1 | cut -d' ' -f2)
+          if [ -n "$latest" ]; then
+            git fetch -q --no-tags upstream "+refs/tags/$latest:refs/upstream-release/$latest"
+            if git merge-base --is-ancestor "refs/upstream-release/$latest" "$main_sha"; then
+              echo "Latest upstream release $latest is in $DEFAULT_BRANCH."
+            else
+              tag_age=$(( (now - $(git log -1 --format=%ct "refs/upstream-release/$latest")) / 86400 ))
+              if [ "$tag_age" -gt "$MAX_RELEASE_LAG_DAYS" ]; then
+                echo "::error title=Upstream drift::Upstream release $latest ($tag_age days old) is not in $DEFAULT_BRANCH (limit $MAX_RELEASE_LAG_DAYS days)."
+                problems=$((problems + 1))
+              else
+                echo "::notice title=Upstream release pending::$latest ($tag_age days old) is not in $DEFAULT_BRANCH yet."
+              fi
+            fi
+          fi
+
+          echo "Drift: $UPSTREAM_COUNT pending, open sync PR: ${OPEN_PR:-none}, latest upstream release: ${latest:-none}." >> "$GITHUB_STEP_SUMMARY"
+          [ "$problems" -eq 0 ]
