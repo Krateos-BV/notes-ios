@@ -1,0 +1,323 @@
+# SPDX-FileCopyrightText: 2026 XeniaCloud
+# SPDX-License-Identifier: MIT
+
+name: Xenia Upstream Release
+
+# Opens a ready-to-review PR for every new upstream release, so nobody has to
+# watch upstream (XEN-316). Per run:
+#   1. find the newest final upstream release tag (no alpha/beta/rc) that is not
+#      in main and not already in an open PR (MONTHLY_MAIN repos also take a pinned
+#      upstream main on the first Tuesday of the month when no release is pending)
+#   2. branch upstream-release/<tag> from fresh main and make ONE merge commit of the
+#      pinned commit (--no-ff, never rebase, never squash)
+#   3. scripts/xenia_resolve.py: restore .github/ to ours, resolve only the safe
+#      conflict hotspots in .github/xenia-resolve.json, refuse CalVer changes
+#   4. scripts/xenia_invariants.py on the result
+#   5. open the PR with the App token (so CI runs), assigned to Vasilis; anything a
+#      human must do makes it a draft labelled needs-human (drafts skip the Xcode
+#      build, so the Mac Mini is not spent on a merge that cannot compile)
+#
+# It stops there. It never merges, never enables auto-merge, never pushes to main,
+# never tags or releases, and never changes CalVer: those stay with Vasilis.
+# The watchdog (xenia-upstream-watchdog.yml, XEN-317) labels the PR from its CI
+# results and notifies when someone has to act.
+
+on:
+  schedule:
+    # Daily 02:00 UTC, so a files-ios build lands while nobody uses the Mac Mini.
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Do everything except push and open the PR'
+        type: boolean
+        default: true
+      target:
+        description: 'Override: an upstream tag, or "main" for a pinned upstream main (rehearsal; pre-release tags allowed only with dry_run)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xenia-upstream-release
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: nextcloud/notes-ios
+  UPSTREAM_BRANCH: main
+  # Final release tags only: 35.2.2, v25.1.0. Pre-releases are ignored (decision 3 Nov).
+  RELEASE_TAG_RE: '^v?[0-9]+(\.[0-9]+)+$'
+  # Upstream that hardly tags releases also gets a pinned upstream main once a month.
+  MONTHLY_MAIN: 'true'
+
+jobs:
+  upstream-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # Same GitHub App as the weekly sync. Its token can push branches that touch
+      # .github/workflows and its PRs trigger CI, which GITHUB_TOKEN's do not. (XNT-184)
+      - name: Mint a GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: Iv23li86RZXU8iKG6Dx1
+          private-key: ${{ secrets.XENIA_SYNC_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Self-test the resolver
+        run: python3 -I scripts/xenia_resolve.py --self-test
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          # Upstream tags go to their own namespace so they never mix with our tags.
+          git fetch -q --no-tags upstream \
+            "+refs/heads/${UPSTREAM_BRANCH}:refs/remotes/upstream/${UPSTREAM_BRANCH}" \
+            "+refs/tags/*:refs/upstream-tags/*"
+
+      - name: Pick the target
+        id: target
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          INPUT_TARGET: ${{ inputs.target }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          main="refs/remotes/origin/${DEFAULT_BRANCH}"
+          out() { echo "$1=$2" >> "$GITHUB_OUTPUT"; }
+          skip() { echo "::notice title=Nothing to do::$1"; echo "$1" >> "$GITHUB_STEP_SUMMARY"; out skip true; exit 0; }
+
+          newest_tag() {
+            git for-each-ref --format='%(refname:strip=2)' refs/upstream-tags \
+              | grep -E "$RELEASE_TAG_RE" \
+              | awk '{k = $0; sub(/^v/, "", k); print k " " $0}' \
+              | sort -V -k1,1 | tail -n 1 | cut -d' ' -f2
+          }
+
+          label="" ; sha=""
+          if [ -n "$INPUT_TARGET" ]; then
+            if [ "$INPUT_TARGET" = "main" ]; then
+              sha=$(git rev-parse "refs/remotes/upstream/${UPSTREAM_BRANCH}^{commit}")
+              label="${UPSTREAM_BRANCH}-$(date -u +%Y-%m-%d)"
+            else
+              sha=$(git rev-parse -q --verify "refs/upstream-tags/${INPUT_TARGET}^{commit}") \
+                || { echo "::error::No upstream tag ${INPUT_TARGET}"; exit 1; }
+              if ! echo "$INPUT_TARGET" | grep -Eq "$RELEASE_TAG_RE" && [ "$DRY_RUN" != "true" ]; then
+                echo "::error::${INPUT_TARGET} is a pre-release; only a dry run may use it."; exit 1
+              fi
+              label="$INPUT_TARGET"
+            fi
+          else
+            tag=$(newest_tag || true)
+            if [ -n "$tag" ] && ! git merge-base --is-ancestor "refs/upstream-tags/${tag}^{commit}" "$main"; then
+              sha=$(git rev-parse "refs/upstream-tags/${tag}^{commit}")
+              label="$tag"
+            elif [ "$MONTHLY_MAIN" = "true" ] && [ "$(date -u +%u)" = "2" ] && [ "$(date -u +%-d)" -le 7 ]; then
+              sha=$(git rev-parse "refs/remotes/upstream/${UPSTREAM_BRANCH}^{commit}")
+              label="${UPSTREAM_BRANCH}-$(date -u +%Y-%m-%d)"
+            else
+              skip "Newest upstream release ${tag:-none} is already in ${DEFAULT_BRANCH}."
+            fi
+          fi
+
+          if git merge-base --is-ancestor "$sha" "$main"; then
+            skip "${label} (${sha:0:12}) is already in ${DEFAULT_BRANCH}."
+          fi
+
+          # Any open PR that already carries this commit (a bot PR or a hand-made one
+          # such as files-ios #35) means there is nothing new to open.
+          superseded=""
+          for n in $(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" --jq '.[].number'); do
+            git fetch -q origin "+refs/pull/${n}/head:refs/open-pr/${n}"
+            if git merge-base --is-ancestor "$sha" "refs/open-pr/${n}"; then
+              skip "Open PR #${n} already contains ${label} (${sha:0:12})."
+            fi
+            head_ref=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${n}" --jq .head.ref)
+            case "$head_ref" in
+              upstream-release/*) superseded="$superseded $n" ;;
+            esac
+          done
+
+          out skip false
+          out sha "$sha"
+          out label "$label"
+          out branch "upstream-release/${label}"
+          out superseded "${superseded# }"
+          echo "Target: ${label} = ${sha}" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # An older release PR the bot opened and nobody has touched is replaced; one
+      # with human commits on it is left alone and told about the newer release.
+      - name: Handle an older release PR
+        id: older
+        if: steps.target.outputs.skip == 'false' && steps.target.outputs.superseded != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          OLDER: ${{ steps.target.outputs.superseded }}
+          LABEL: ${{ steps.target.outputs.label }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          blocked=false
+          for n in $OLDER; do
+            # A bot PR is exactly one first-parent commit (its merge) on top of main.
+            own=$(git rev-list --first-parent --count "refs/remotes/origin/${DEFAULT_BRANCH}..refs/open-pr/${n}")
+            if [ "$own" -le 1 ]; then
+              echo "PR #${n} has only the bot's merge: superseded by ${LABEL}."
+              [ "$DRY_RUN" = "true" ] && continue
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${n}/comments" \
+                -f body="Superseded by upstream ${LABEL}; the bot opens a new PR for it. Nothing on this branch was changed by a person." >/dev/null
+              gh api --method PATCH "repos/${GITHUB_REPOSITORY}/pulls/${n}" -f state=closed >/dev/null
+            else
+              blocked=true
+              marker="<!-- xenia-newer-release:${LABEL} -->"
+              if ! gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${n}/comments" --jq '.[].body' | grep -qF "$marker"; then
+                [ "$DRY_RUN" = "true" ] || gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${n}/comments" \
+                  -f body="${marker}
+          Upstream ${LABEL} is out. This PR has commits from a person, so the bot leaves it alone and opens nothing new. Merge or close this PR and the next run picks up ${LABEL}." >/dev/null
+              fi
+            fi
+          done
+          echo "blocked=$blocked" >> "$GITHUB_OUTPUT"
+
+      - name: Merge the release
+        id: merge
+        if: steps.target.outputs.skip == 'false' && steps.older.outputs.blocked != 'true'
+        env:
+          SHA: ${{ steps.target.outputs.sha }}
+          LABEL: ${{ steps.target.outputs.label }}
+          BRANCH: ${{ steps.target.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git checkout -q -b "$BRANCH"
+          git -c merge.conflictStyle=merge merge --no-ff --no-commit "$SHA" || true
+          git rev-parse -q --verify MERGE_HEAD >/dev/null || { echo "::error::git merge did not start"; exit 1; }
+
+          set +e
+          python3 -I scripts/xenia_resolve.py --report "$RUNNER_TEMP/resolution.md"
+          rc=$?
+          set -e
+          [ "$rc" -eq 0 ] || [ "$rc" -eq 3 ] || exit "$rc"
+
+          # Whatever is left keeps its markers, so the diff shows exactly what a
+          # human has to do (and the conflict-marker guard keeps it red until then).
+          git add -A
+          git commit -q --no-verify -m "Merge ${UPSTREAM_REPO} ${LABEL} (${SHA:0:12})" \
+            -m "One merge commit of the pinned upstream commit ${SHA}. Merge this PR with \"Create a merge commit\" only."
+          [ "$(git rev-list --count HEAD^@ --no-walk)" = "2" ] || { echo "::error::not a two-parent merge"; exit 1; }
+          echo "needs_human=$([ "$rc" -eq 3 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Check Xenia invariants on the merge
+        id: invariants
+        if: steps.merge.outcome == 'success'
+        run: |
+          if [ ! -f scripts/xenia_invariants.py ]; then
+            echo "::warning::scripts/xenia_invariants.py is not on main yet; invariants not checked here."
+            echo "ok=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if python3 -I scripts/xenia_invariants.py > "$RUNNER_TEMP/invariants.txt" 2>&1; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+          cat "$RUNNER_TEMP/invariants.txt"
+
+      - name: Push the branch
+        if: steps.merge.outcome == 'success' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ steps.target.outputs.branch }}
+        run: |
+          # The branch is bot-owned and no open PR carries this release (checked above).
+          # A leftover from a closed PR may be replaced, but only if it is still exactly
+          # what this run saw; anything pushed since makes this fail instead. (XEN-284)
+          expected=$(git ls-remote origin "refs/heads/${BRANCH}" | cut -f1)
+          git push -q --force-with-lease="${BRANCH}:${expected}" \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "${BRANCH}"
+
+      - name: Write the PR body
+        if: steps.merge.outcome == 'success'
+        env:
+          SHA: ${{ steps.target.outputs.sha }}
+          LABEL: ${{ steps.target.outputs.label }}
+          BASE_SHA: ${{ steps.merge.outputs.base }}
+          NEEDS_HUMAN: ${{ steps.merge.outputs.needs_human }}
+          INVARIANTS_OK: ${{ steps.invariants.outputs.ok }}
+        run: |
+          set -euo pipefail
+          total=$(git rev-list --count "${BASE_SHA}..${SHA}")
+          fence='````'
+          {
+            echo "Upstream [${UPSTREAM_REPO}](https://github.com/${UPSTREAM_REPO}) **${LABEL}**, pinned at \`${SHA}\`, merged into main as one merge commit (${total} upstream commits)."
+            echo
+            if [ "$NEEDS_HUMAN" = "true" ] || [ "$INVARIANTS_OK" != "true" ]; then
+              echo "**Needs a person before review.** This is a draft: see the resolution report below, resolve on this branch, then mark it ready for review."
+            else
+              echo "Everything the bot could check is resolved. CI runs now; the watchdog labels this PR \`ready-for-review\` or \`ci-red\` from the results."
+            fi
+            if [ "$INVARIANTS_OK" != "true" ]; then
+              echo
+              echo "**The Xenia invariants guard failed on the merge result.** See the Xenia Invariants Guard check on this PR."
+            fi
+            echo
+            echo "Never auto-merged. Merge with **Create a merge commit** only (never squash or rebase, XEN-256), and only after:"
+            echo
+            echo "- [ ] CI green with the logs read, not only the badge"
+            echo "- [ ] Login, main flows and anything upstream changed checked on a device"
+            echo "- [ ] Anything touching login, registration, account deletion or tracking re-checked for App Review"
+            echo "- [ ] Merge timing fits the App Store review in flight"
+            echo
+            cat "$RUNNER_TEMP/resolution.md"
+            echo
+            echo "### Upstream commits"
+            echo
+            echo "${fence}text"
+            git log --max-count=300 --format='- %h %s' "${BASE_SHA}..${SHA}"
+            [ "$total" -le 300 ] || echo "- ... and $((total - 300)) more"
+            echo "${fence}"
+            echo
+            echo "Opened by xenia-upstream-release.yml (XEN-316)."
+          } > "$RUNNER_TEMP/body.md"
+          # GitHub's PR body limit is 65,536 characters.
+          head -c 60000 "$RUNNER_TEMP/body.md" > "$RUNNER_TEMP/body.trim.md"
+          cat "$RUNNER_TEMP/body.trim.md" >> "$GITHUB_STEP_SUMMARY"
+
+      # REST, not `gh pr create`: the GraphQL mutation refuses App tokens. (XNT-184)
+      - name: Open the PR
+        if: steps.merge.outcome == 'success' && inputs.dry_run != true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          LABEL: ${{ steps.target.outputs.label }}
+          BRANCH: ${{ steps.target.outputs.branch }}
+          BASE: ${{ github.event.repository.default_branch }}
+          NEEDS_HUMAN: ${{ steps.merge.outputs.needs_human }}
+          INVARIANTS_OK: ${{ steps.invariants.outputs.ok }}
+        run: |
+          set -euo pipefail
+          draft=false; state=ci-pending
+          if [ "$NEEDS_HUMAN" = "true" ] || [ "$INVARIANTS_OK" != "true" ]; then draft=true; state=needs-human; fi
+          number=$(jq -n --arg title "Upstream release: ${UPSTREAM_REPO} ${LABEL}" --arg head "$BRANCH" \
+                      --arg base "$BASE" --rawfile body "$RUNNER_TEMP/body.trim.md" --argjson draft "$draft" \
+                      '{title: $title, head: $head, base: $base, body: $body, draft: $draft}' \
+                   | gh api --method POST "repos/${GITHUB_REPOSITORY}/pulls" --input - --jq .number)
+          echo "Opened PR #${number}" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Best effort from here: the PR exists, and the watchdog repeats the labels.
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${number}/labels" \
+            -f "labels[]=upstream-release" -f "labels[]=${state}" >/dev/null || echo "::warning::could not label #${number}"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${number}/assignees" \
+            -f "assignees[]=xeniacloud" >/dev/null || echo "::warning::could not assign #${number}"
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/pulls/${number}/requested_reviewers" \
+            -f "reviewers[]=xeniacloud" >/dev/null || echo "::warning::could not request review on #${number}"
