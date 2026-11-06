@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: macos-15
+    runs-on: [self-hosted, macOS, ARM64]
 
     steps:
       - name: Checkout
@@ -30,7 +30,9 @@ jobs:
           LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
           LATEST=${LATEST:-/Applications/Xcode.app}
           echo "Selecting $LATEST"
-          sudo xcode-select --switch "$LATEST"
+          # DEVELOPER_DIR instead of sudo xcode-select: no root needed, and the
+          # self-hosted Mac Mini's global Xcode selection stays untouched.
+          echo "DEVELOPER_DIR=$LATEST/Contents/Developer" >> "$GITHUB_ENV"
 
       - name: Show versions
         run: |
