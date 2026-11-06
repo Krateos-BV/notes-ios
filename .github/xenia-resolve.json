@@ -1,0 +1,40 @@
+{
+  "_comment": "Upstream-release conflict rules (XEN-316), read by scripts/xenia_resolve.py. First matching rule wins; `never` beats every rule. Only add a rule after a rehearsal shows it reproduces a human resolution: on files-ios 35.2.2, keeping our NCBrand.swift (whole file or per hunk) and our Acknowledgements.rtf both differed from the hand resolution in PR #35, so Swift and generated files stay with a human.",
+  "never": [
+    "**/Package.resolved",
+    "**/*.entitlements",
+    "**/*.strings",
+    "**/*.stringsdict",
+    "**/Info.plist",
+    "**/GoogleService-Info.plist",
+    "scripts/xenia_*"
+  ],
+  "rules": [
+    {
+      "paths": [
+        "README.md",
+        "**/*.xcassets/**/*.png",
+        "**/*.xcassets/**/*.pdf",
+        "**/*.xcassets/**/*.svg"
+      ],
+      "strategy": "ours"
+    },
+    {
+      "paths": [
+        "**/*.pbxproj",
+        "**/*.xcconfig"
+      ],
+      "strategy": "protected-keys",
+      "keys": [
+        "PRODUCT_BUNDLE_IDENTIFIER",
+        "DEVELOPMENT_TEAM",
+        "CURRENT_PROJECT_VERSION",
+        "MARKETING_VERSION",
+        "CODE_SIGN_IDENTITY",
+        "CODE_SIGN_STYLE",
+        "PROVISIONING_PROFILE_SPECIFIER",
+        "CODE_SIGN_ENTITLEMENTS"
+      ]
+    }
+  ]
+}

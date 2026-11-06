@@ -1,0 +1,13 @@
+{
+  "bundle_id_prefix": "eu.xeniacloud.notes",
+  "allowed_app_groups": ["group.eu.xeniacloud.notes", "group.eu.xeniacloud.apps"],
+  "login": {
+    "file": "Brand/NCBrand.swift",
+    "contains": "var loginBaseUrl: String = \"https://portal.xeniacloud.eu\""
+  },
+  "brand_colours": {
+    "mode": "fail",
+    "shipped_dirs": ["Source", "iOCNotes", "Brand", "Utils", "Models", "Networking", "Editor",
+                     "Extensions", "ActionExtension", "Nextcloud", "Server"]
+  }
+}

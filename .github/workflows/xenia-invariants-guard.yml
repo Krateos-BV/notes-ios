@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 XeniaCloud
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Xenia Invariants Guard
+
+# Fails a PR (and main) when the tree loses something this fork must keep:
+# Firebase/Crashlytics/Google SDKs stay out, bundle ids and App Groups stay Xenia,
+# no location background mode, the locked login URL stays, and no Nextcloud brand
+# blues in shipped source. Conflict review misses some of these: an upstream merge
+# can re-add a Firebase build phase without any conflict at all (files-ios #35).
+#
+# Rules live in .github/xenia-invariants.json, the checks in scripts/xenia_invariants.py.
+# The script runs a self-test first, so a broken guard turns red instead of passing
+# silently. (XEN-308)
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xenia-invariants-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  xenia-invariants:
+    name: xenia-invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          persist-credentials: false
+
+      - name: Self-test the guard
+        run: python3 -I scripts/xenia_invariants.py --self-test
+
+      - name: Check Xenia invariants
+        run: python3 -I scripts/xenia_invariants.py
