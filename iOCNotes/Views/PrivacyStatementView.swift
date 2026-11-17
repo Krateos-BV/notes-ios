@@ -72,18 +72,18 @@ struct SinglePageNavigationPolicy: Equatable {
     ///
     func allows(_ url: URL?, isMainFrame: Bool?) -> Bool {
         switch isMainFrame {
-        case .none:
-            // New windows (target="_blank", window.open) are never opened.
-            return false
-        case .some(false):
-            // Embedded frames (such as a consent widget) may load; anything they open in the main frame is checked again.
-            return true
-        case .some(true):
-            guard let url, url.scheme?.lowercased() == "https", let urlHost = url.host?.lowercased() else {
+            case .none:
+                // New windows (target="_blank", window.open) are never opened.
                 return false
-            }
+            case .some(false):
+                // Embedded frames (such as a consent widget) may load; anything they open in the main frame is checked again.
+                return true
+            case .some(true):
+                guard let url, url.scheme?.lowercased() == "https", let urlHost = url.host?.lowercased() else {
+                    return false
+                }
 
-            return urlHost == host && Self.normalized(path: url.path) == path
+                return urlHost == host && Self.normalized(path: url.path) == path
         }
     }
 
