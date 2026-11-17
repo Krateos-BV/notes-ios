@@ -14,7 +14,6 @@ import SwiftUI
 /// A loop of property value change and server requests must be avoided as it is with the current implementation.
 ///
 struct SettingsView: View {
-    @Environment(\.openURL) private var openURL
     @Environment(Store.self) var store
 
     @State var fileExtension: FileSuffix?
@@ -90,17 +89,13 @@ struct SettingsView: View {
                     FormDetailView("Client Version", detail: .constant("\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "nil") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "nil"))"))
                     FormDetailView("Server Version", detail: .constant(KeychainHelper.productVersion))
 
+                    // Locked to the statement itself: the website around it links to plans (App Review 3.1.1, XEN-369).
+                    // There is deliberately no link to the source code or the website here for the same reason.
                     if let url = URL(string: NCBrandOptions.shared.privacyUrl) {
                         NavigationLink("Privacy and Legal Policy") {
-                            WebView(initialURL: .constant(url))
-                        }
-                    }
-
-                    if let url = URL(string: NCBrandOptions.shared.sourceCodeUrl) {
-                        Button {
-                            openURL(url)
-                        } label: {
-                            Text("Show Source Code on GitHub")
+                            PrivacyStatementView(url: url)
+                                .navigationTitle("Privacy and Legal Policy")
+                                .toolbarTitleDisplayMode(.inline)
                         }
                     }
                 }
