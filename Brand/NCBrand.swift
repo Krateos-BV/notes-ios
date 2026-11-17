@@ -24,6 +24,11 @@ class NCBrandOptions: NSObject {
     var textCopyrightNextcloudServer: String = "Nextcloud Server %@"
     var loginBaseUrl: String = "https://portal.xeniacloud.eu"
 
+    // The login web view may only show pages on these hosts, and never the sign-up (enrollment) flow,
+    // so App Review cannot reach plans or pricing from the sign-in screen (Guideline 3.1.1, XEN-369).
+    var loginAllowedHosts: Set<String> = ["portal.xeniacloud.eu", "auth.xeniacloud.eu"]
+    var loginBlockedPathFragments: [String] = ["enrollment"]
+
     var privacyUrl: String = "https://xeniacloud.eu/privacy-statement-eu/"
     var sourceCodeUrl: String = "https://github.com/Krateos-BV/notes-ios"
 
