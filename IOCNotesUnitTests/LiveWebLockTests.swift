@@ -154,8 +154,17 @@ struct LiveWebLockTests {
         print("[XEN-369] login: \(inputs) input fields rendered")
         #expect(inputs > 0, "Sign-in form never rendered: the allow-list may block something the sign-in needs")
 
+        // The sign-in page may show no sign-up link at all (Authentik hides it when no enrollment flow is set),
+        // so links found on the page are tried, and the forbidden targets are also opened by script, like a link would.
         let tried = try await assertLinksBlocked(in: webView, reload: login)
-        #expect(tried > 0, "No sign-up link found on the sign-in page, so blocking was not exercised")
-        print("[XEN-369] login: tried \(tried) forbidden links, final URL \(webView.url?.absoluteString ?? "nil")")
+        print("[XEN-369] login: tried \(tried) forbidden links on the page")
+
+        let start = try #require(webView.url)
+        for target in ["https://auth.xeniacloud.eu/if/flow/xenia-enrollment/", "https://xeniacloud.eu/pricing-en/", "https://xeniacloud.eu/"] {
+            _ = try await webView.evaluateJavaScript("window.location.href = '\(target)'; true")
+            try await settle(webView, timeout: .seconds(10))
+            #expect(webView.url?.path == start.path && webView.url?.host == start.host, "Script navigation to \(target) was not blocked: \(webView.url?.absoluteString ?? "nil")")
+            print("[XEN-369] login: script navigation to \(target) -> \(webView.url?.host ?? "nil")\(webView.url?.path ?? "")")
+        }
     }
 }
