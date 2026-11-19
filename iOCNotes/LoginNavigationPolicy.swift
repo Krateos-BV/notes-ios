@@ -3,6 +3,8 @@
 
 import Foundation
 import NextcloudKitUI
+import SwiftUI
+import WebKit
 
 extension NCBrandOptions {
     ///
@@ -21,3 +23,15 @@ extension NCBrandOptions {
         loginNavigationPolicy.allows(url)
     }
 }
+
+#if DEBUG
+extension NCBrandOptions {
+    ///
+    /// The navigation delegate the login sheet uses, so live web tests can drive a `WKWebView` with the real policy enforcement.
+    ///
+    @MainActor
+    func makeLoginNavigationDelegate() -> WKNavigationDelegate {
+        WebView(initialURL: .constant(nil), navigationPolicy: loginNavigationPolicy).makeCoordinator()
+    }
+}
+#endif
