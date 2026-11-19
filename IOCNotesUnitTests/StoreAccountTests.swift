@@ -4,7 +4,7 @@
 import Testing
 @testable import iOCNotes
 
-@Suite("Store Account Tests", .serialized)
+@Suite("Store Account Tests", .serialized, .enabled(if: TestEnvironment.isSimulator, TestEnvironment.simulatorOnlyReason))
 final class StoreAccountTests {
     private let originalServer = KeychainHelper.server
     private let originalUsername = KeychainHelper.username
