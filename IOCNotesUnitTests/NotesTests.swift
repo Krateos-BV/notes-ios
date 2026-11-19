@@ -12,7 +12,8 @@ import Testing
     .enabled(
         if: ProcessInfo.processInfo.environment["NOTES_INTEGRATION_TESTS"] == "1",
         "Requires the local Nextcloud test server"
-    )
+    ),
+    .enabled(if: TestEnvironment.isSimulator, TestEnvironment.simulatorOnlyReason)
 )
 class NotesTests {
     var originalServer: String = ""

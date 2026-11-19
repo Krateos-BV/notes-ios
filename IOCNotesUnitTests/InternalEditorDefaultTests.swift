@@ -5,7 +5,7 @@ import Foundation
 import Testing
 @testable import iOCNotes
 
-@Suite("Internal Editor Default Tests", .serialized)
+@Suite("Internal Editor Default Tests", .serialized, .enabled(if: TestEnvironment.isSimulator, TestEnvironment.simulatorOnlyReason))
 final class InternalEditorDefaultTests {
     private let key = "InternalEditor"
     private let originalValue: Any?
