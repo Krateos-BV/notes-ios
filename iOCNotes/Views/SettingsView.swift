@@ -79,8 +79,8 @@ struct SettingsView: View {
 
                         store.fileExtension = fileExtension
 
-                        NoteSessionManager.shared.updateSettings {
-                            // Nothing to do here yet.
+                        Task {
+                            await NoteSessionManager.shared.updateSettings()
                         }
                     }
                 }
@@ -134,8 +134,8 @@ struct SettingsView: View {
                     showPathAlert = false
                     $store.notesPath.wrappedValue = pathInAlert
 
-                    NoteSessionManager.shared.updateSettings {
-                        // Nothing to do here yet.
+                    Task {
+                        await NoteSessionManager.shared.updateSettings()
                     }
                 } label: {
                     Text("Save")
