@@ -98,11 +98,11 @@ def job_alarms(jobs, now, queued_max, running_max):
         name = f"[{job.get('workflow_name') or 'job'} / {job['name']}]({job['html_url']})"
         if job["status"] in ("queued", "waiting", "pending") and minutes_since(job["created_at"], now) > queued_max:
             mins = int(minutes_since(job["created_at"], now))
-            hint = " Check the Mac Mini (powered, screen not locked, runner service up); do not wait." if "xcode-27" in labels else ""
+            hint = " Check the Mac Mini (powered, screen not locked, runner service up); do not wait." if ("xcode-27" in labels or "self-hosted" in labels) else ""
             out.append((f"queued:{job['id']}", f"{name} has been queued {mins} min on runner `{labels}`.{hint}"))
         elif job["status"] == "in_progress" and job.get("started_at") and minutes_since(job["started_at"], now) > running_max:
             mins = int(minutes_since(job["started_at"], now))
-            hint = " Check the Mac Mini for a stalled step or a locked screen." if "xcode-27" in labels else ""
+            hint = " Check the Mac Mini for a stalled step or a locked screen." if ("xcode-27" in labels or "self-hosted" in labels) else ""
             out.append((f"running:{job['id']}", f"{name} has been running {mins} min on runner `{labels}`.{hint}"))
     return out
 
