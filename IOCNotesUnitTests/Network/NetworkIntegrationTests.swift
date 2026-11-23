@@ -16,7 +16,10 @@ func localized(_ key: String) -> String {
 /// They share process-wide state (user defaults, keychain, the Core Data context), so all of them run serially.
 /// Each nested suite sets its own time limit: the shortest applicable limit wins, so one here would cap them all.
 ///
-@Suite(.serialized)
+/// Simulator only (Xenia, XEN-369): the suites swap the app's real credentials, settings and notes store and
+/// restore them afterwards; on a physical device an interrupted run would leave the user's account broken.
+///
+@Suite(.serialized, .enabled(if: TestEnvironment.isSimulator, TestEnvironment.simulatorOnlyReason))
 enum NetworkIntegrationTests {}
 
 extension Tag {
