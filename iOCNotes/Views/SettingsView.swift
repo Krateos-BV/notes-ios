@@ -79,8 +79,8 @@ struct SettingsView: View {
 
                         store.fileExtension = fileExtension
 
-                        NoteSessionManager.shared.updateSettings {
-                            // Nothing to do here yet.
+                        Task {
+                            await NoteSessionManager.shared.updateSettings()
                         }
                     }
                 }
@@ -93,9 +93,21 @@ struct SettingsView: View {
                     // There is deliberately no link to the source code or the website here for the same reason.
                     if let url = URL(string: NCBrandOptions.shared.privacyUrl) {
                         NavigationLink("Privacy and Legal Policy") {
+<<<<<<< HEAD
                             PrivacyStatementView(url: url)
                                 .navigationTitle("Privacy and Legal Policy")
                                 .toolbarTitleDisplayMode(.inline)
+=======
+                            WebView(initialURL: url)
+                        }
+                    }
+
+                    if let url = URL(string: NCBrandOptions.shared.sourceCodeUrl) {
+                        Button {
+                            openURL(url)
+                        } label: {
+                            Text("Show Source Code on GitHub")
+>>>>>>> 1a0f2e10639195442e9bca98001763391575832b
                         }
                     }
                 }
@@ -134,8 +146,8 @@ struct SettingsView: View {
                     showPathAlert = false
                     $store.notesPath.wrappedValue = pathInAlert
 
-                    NoteSessionManager.shared.updateSettings {
-                        // Nothing to do here yet.
+                    Task {
+                        await NoteSessionManager.shared.updateSettings()
                     }
                 } label: {
                     Text("Save")
